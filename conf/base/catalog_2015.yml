@@ -1,0 +1,5 @@
+# Aquí le decimos a Kedro dónde y cómo guardar el output de tu nodo
+raw_nhanes_2015:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/nhanes_2015_maestra.csv
+  # Si en el futuro falla por memoria, podemos cambiar type a pandas.ParquetDataset
