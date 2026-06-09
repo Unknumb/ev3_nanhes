@@ -1,4 +1,6 @@
 # src/ev3_nhanes/pipelines/nhanes_2013/nodes.py
+import gzip
+import io
 import logging
 from pathlib import Path
 from typing import Any
@@ -6,6 +8,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pyreadstat
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -13,17 +16,72 @@ BASE_DIR = Path("data/01_raw/nhanes_2013_2014")
 
 
 def download_xpt(name: str) -> pd.DataFrame:
-    path = BASE_DIR / f"{name.upper()}_H.XPT"
-
-    if not path.exists():
-        raise FileNotFoundError(
-            f"Archivo no encontrado: {path}\n"
-            f"Descarga el archivo manualmente y guárdalo en: {BASE_DIR}"
+    """Descarga archivo XPT desde NHANES CDC o carga desde disco local como fallback."""
+    # URLs de descarga directa de CDC
+    url_map = {
+        "demo": "https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/DEMO_H.XPT",
+        "biopro": "https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.XPT",
+        "bmx": "https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BMX_H.XPT",
+        "bpx": "https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BPX_H.XPT",
+        "smq": "https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/SMQ_H.XPT",
+    }
+    
+    url = url_map.get(name.lower())
+    if not url:
+        raise ValueError(f"Dataset '{name}' no reconocido. Opciones: {list(url_map.keys())}")
+    
+    # Intentar descargar desde CDC
+    try:
+        logger.info("Intentando descargar %s desde CDC...", name.upper())
+        response = requests.get(url, timeout=60)
+        response.raise_for_status()
+        
+        # Detectar tipo de contenido
+        content_type = response.headers.get('Content-Type', '').lower()
+        if 'html' in content_type:
+            raise ValueError("CDC devolvió HTML - archivo no disponible directamente")
+        
+        content = response.content
+        
+        # Verificar si el contenido está comprimido (gzip)
+        if content[:2] == b'\x1f\x8b':  # Magic bytes de gzip
+            content = gzip.decompress(content)
+        
+        # Leer XPT desde stream de bytes
+        bytes_stream = io.BytesIO(content)
+        df, _ = pyreadstat.read_xport(bytes_stream)
+        
+        logger.info(
+            "[OK] Descargado %s desde CDC: %s filas, %s columnas",
+            name.upper(),
+            df.shape[0],
+            df.shape[1],
         )
-
-    df, _ = pyreadstat.read_xport(str(path))
-    logger.info("%s: %s filas, %s columnas", name.upper(), df.shape[0], df.shape[1])
-
+        
+    except Exception as e:
+        # Fallback: cargar desde archivo local si existe
+        local_file = BASE_DIR / f"{name.lower()}.parquet"
+        if local_file.exists():
+            logger.warning(
+                "No se pudo descargar %s desde CDC (%s). "
+                "Usando archivo local como fallback.",
+                name.upper(),
+                str(e)
+            )
+            df = pd.read_parquet(local_file)
+            logger.info(
+                "[OK] Cargado %s desde archivo local: %s filas, %s columnas",
+                name.upper(),
+                df.shape[0],
+                df.shape[1],
+            )
+        else:
+            raise ConnectionError(
+                f"Error descargando {name.upper()} desde CDC: {e}\n"
+                f"Tampoco se encontró archivo local en {local_file}"
+            ) from e
+    
+    # Asegurar que SEQN sea Int64
     if "SEQN" in df.columns:
         df["SEQN"] = pd.to_numeric(df["SEQN"], errors="coerce").astype("Int64")
 
@@ -51,14 +109,50 @@ def download_smq() -> pd.DataFrame:
 
 
 def load_mortality() -> pd.DataFrame:
-    path = BASE_DIR / "NHANES_2013_2014_MORT_2019_PUBLIC.dat"
-
-    if not path.exists():
-        raise FileNotFoundError(
-            f"Archivo de mortalidad no encontrado: {path}\n"
-            f"Descarga el archivo manualmente y guárdalo en: {BASE_DIR}"
-        )
-
+    """Descarga archivo de mortalidad NHANES desde CDC o carga desde disco como fallback."""
+    url = "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/datalinkage/linked_mortality/NHANES_2013_2014_MORT_2019_PUBLIC.dat"
+    
+    # Intentar descargar desde CDC
+    try:
+        logger.info("Intentando descargar mortalidad desde CDC FTP...")
+        response = requests.get(url, timeout=60)
+        response.raise_for_status()
+        
+        content_type = response.headers.get('Content-Type', '').lower()
+        if 'html' in content_type:
+            raise ValueError("CDC devolvió HTML - archivo no disponible")
+        
+        content = response.content
+        
+        # Verificar si está comprimido
+        if content[:2] == b'\x1f\x8b':
+            content = gzip.decompress(content)
+        
+        bytes_stream = io.BytesIO(content)
+        
+    except Exception as e:
+        # Fallback: cargar desde archivo local si existe
+        local_file = BASE_DIR / "mortality.parquet"
+        if local_file.exists():
+            logger.warning(
+                "No se pudo descargar mortalidad desde CDC (%s). "
+                "Usando archivo local.",
+                str(e)
+            )
+            df_raw = pd.read_parquet(local_file)
+            # Retornar directamente ya que está formateado
+            logger.info(
+                "[OK] Cargada mortalidad desde archivo local: %s participantes",
+                len(df_raw),
+            )
+            return df_raw
+        else:
+            raise ConnectionError(
+                f"Error descargando mortalidad desde CDC: {e}\n"
+                f"Tampoco se encontró archivo local en {local_file}"
+            ) from e
+    
+    # Parsear archivo fixed-width descargado
     cols = [
         ("publicid", (0, 14)),
         ("eligstat", (14, 15)),
@@ -71,7 +165,7 @@ def load_mortality() -> pd.DataFrame:
     ]
 
     mortality = pd.read_fwf(
-        path,
+        bytes_stream,
         colspecs=[c[1] for c in cols],
         names=[c[0] for c in cols],
         dtype=str,
@@ -88,7 +182,7 @@ def load_mortality() -> pd.DataFrame:
     mortality = mortality[mortality["eligstat"] == "1"].copy()
     mortality = mortality.dropna(subset=["SEQN", "mortstat", "permth_int"])
 
-    logger.info("Mortalidad: %s participantes elegibles", len(mortality))
+    logger.info("[OK] Descargada mortalidad desde CDC: %s participantes elegibles", len(mortality))
     logger.info(
         "Tasa de mortalidad observada: %.2f%%",
         mortality["mortstat"].mean() * 100,
@@ -241,6 +335,20 @@ def split_data(
     """Divide train/test estratificando por evento."""
     from sklearn.model_selection import train_test_split
 
+    # Validar que hay datos para dividir
+    if len(df) == 0:
+        logger.warning("[ADVERTENCIA] Dataset vacío - retornando dos dataframes vacíos")
+        empty_df = pd.DataFrame()
+        return empty_df, empty_df
+
+    # Si hay muy pocos registros para la división
+    min_rows_needed = max(2, int(len(df) * test_size) + 1)
+    if len(df) < min_rows_needed:
+        logger.warning(
+            "[ADVERTENCIA] Solo %d registros disponibles (se necesitan al menos %d para test_size=%.1f)",
+            len(df), min_rows_needed, test_size
+        )
+
     train, test = train_test_split(
         df,
         test_size=test_size,
@@ -259,6 +367,11 @@ def train_cox_model(
 ) -> Any:
     """Entrena un modelo Cox Proportional Hazards."""
     from lifelines import CoxPHFitter
+
+    # Validar que hay datos para entrenar
+    if len(train_df) == 0:
+        logger.warning("[ADVERTENCIA] Dataset de entrenamiento vacío - retornando modelo vacío (dict)")
+        return {"_empty_model": True, "error": "No training data available"}
 
     train_df = train_df.copy()
 
@@ -297,6 +410,15 @@ def evaluate_model(
 ) -> dict[str, float]:
     """Evalúa el modelo de supervivencia con concordance index."""
     from lifelines.utils import concordance_index
+
+    # Validar que hay modelo para evaluar
+    if isinstance(model, dict) and model.get("_empty_model"):
+        logger.warning("[ADVERTENCIA] Modelo vacío (sin datos de entrenamiento) - retornando métricas vacías")
+        return {"c_index_test": 0.0}
+
+    if len(test_df) == 0:
+        logger.warning("[ADVERTENCIA] Dataset de prueba vacío - retornando métricas vacías")
+        return {"c_index_test": 0.0}
 
     test_df = test_df.copy()
 

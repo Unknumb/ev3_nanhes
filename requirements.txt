@@ -2,3 +2,4 @@ ipython>=8.10
 jupyterlab>=3.0
 notebook
 kedro~=1.4.0
+requests>=2.28.0
