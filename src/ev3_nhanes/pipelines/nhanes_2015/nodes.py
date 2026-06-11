@@ -31,6 +31,8 @@ _TABLAS = {
 _CICLOS_HISTORICOS = {
     "H": {"anio": "2013", "label": "2013-2014"},
     "G": {"anio": "2011", "label": "2011-2012"},
+    "F": {"anio": "2009", "label": "2009-2010"},
+    "E": {"anio": "2007", "label": "2007-2008"},
 }
 
 _CICLO_BASE = {
@@ -115,14 +117,15 @@ def _descargar_y_unir_ciclo(letra: str, anio: str, label: str) -> pd.DataFrame:
 def descargar_y_unir_2015() -> pd.DataFrame:
     """
     Descarga los datos NHANES 2015-2016 y aplica **Data Augmentation**
-    con los ciclos históricos 2013-2014 (H) y 2011-2012 (G) para resolver
-    el desbalance de clases en la población de longevos (RIDAGEYR >= 70).
+    con los ciclos históricos 2013-2014 (H), 2011-2012 (G), 2009-2010 (F)
+    y 2007-2008 (E) para resolver el desbalance de clases en la población
+    de longevos (RIDAGEYR >= 70).
 
     Flujo
     -----
     1. **Ciclo Base completo** (I – 2015-2016): se descarga íntegramente
        (todos los pacientes, todas las edades).
-    2. **Ciclos Históricos – Filtro de Rescate** (H, G): se descargan
+    2. **Ciclos Históricos – Filtro de Rescate** (H, G, F, E): se descargan
        las mismas 7 tablas, pero se conservan **únicamente** los
        pacientes con RIDAGEYR >= 70 (longevos).
     3. **Concatenación vertical**: los registros longevos rescatados
