@@ -1,5 +1,10 @@
 import pandas as pd
 import numpy as np
+from typing import Any
+from sklearn.impute import KNNImputer, SimpleImputer
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, KFold
+from xgboost import XGBClassifier, XGBRegressor
 
 # ──────────────────────────────────────────────────────────────────────
 # Constantes de Configuración
@@ -98,3 +103,139 @@ def descargar_y_unir_2015() -> pd.DataFrame:
             
     print(f"\n¡Extracción Completada con Éxito! Dataset robustecido: {len(df_final)} pacientes totales.")
     return df_final
+
+
+def preprocesar_datos_2015(df: pd.DataFrame) -> pd.DataFrame:
+    """Limpia, imputa y crea variable objetivo IS_LONGEVO."""
+    print("Iniciando preprocesamiento de datos...")
+    
+    # 1. Limpieza inicial: eliminar nulos en la edad y menores de 18 años
+    df = df.dropna(subset=['RIDAGEYR'])
+    df = df[df['RIDAGEYR'] >= 18].copy()
+    
+    # 2. Crear variable objetivo (IS_LONGEVO)
+    df['IS_LONGEVO'] = (df['RIDAGEYR'] >= _EDAD_LONGEVO).astype(int)
+    
+    # 3. Identificar y filtrar variables deseadas
+    cols_id = ['SEQN']
+    cols_demo = ['RIDAGEYR', 'RIAGENDR', 'RIDRETH3', 'DMDEDUC2', 'DMDMARTL', 'DMDHHSIZ', 'DMDFMSIZ', 'INDFMPIR']
+    cols_bmx = ['BMXWT', 'BMXHT', 'BMXBMI', 'BMXWAIST', 'BMXLEG', 'BMXARML', 'BMXARMC']
+    cols_bp = ['BPXSY1', 'BPXDI1', 'BPXSY2', 'BPXDI2', 'BPXSY3', 'BPXDI3', 'BPXPLS']
+    cols_lab = ['LBXTC', 'LBXGLU']
+    
+    cols_deseadas = cols_id + cols_demo + cols_bmx + cols_bp + cols_lab + ['IS_LONGEVO', 'CICLO_ORIGEN']
+    cols_seleccion = [c for c in cols_deseadas if c in df.columns]
+    
+    df = df[cols_seleccion].copy()
+
+    cols_categoricas = ['RIAGENDR', 'RIDRETH3', 'DMDEDUC2', 'DMDMARTL']
+    cols_categoricas = [c for c in cols_categoricas if c in df.columns]
+    
+    cols_numericas = [
+        'DMDHHSIZ', 'DMDFMSIZ', 'INDFMPIR',
+        'BMXWT', 'BMXHT', 'BMXBMI', 'BMXWAIST', 'BMXLEG', 'BMXARML', 'BMXARMC',
+        'BPXSY1', 'BPXDI1', 'BPXSY2', 'BPXDI2', 'BPXSY3', 'BPXDI3', 'BPXPLS',
+        'LBXTC', 'LBXGLU',
+    ]
+    cols_numericas = [c for c in cols_numericas if c in df.columns]
+    
+    # 4. Imputación de nulos
+    knn_imputer = KNNImputer(n_neighbors=5, weights='uniform')
+    df[cols_numericas] = knn_imputer.fit_transform(df[cols_numericas])
+    
+    simple_imputer = SimpleImputer(strategy='most_frequent')
+    df[cols_categoricas] = simple_imputer.fit_transform(df[cols_categoricas])
+    
+    # 5. One-Hot Encoding
+    for col in cols_categoricas:
+        df[col] = df[col].astype(int).astype(str)
+    df_encoded = pd.get_dummies(df, columns=cols_categoricas, drop_first=True, dtype=int)
+    
+    # 6. Escalado
+    cols_a_escalar = [c for c in cols_numericas if c in df_encoded.columns]
+    scaler = StandardScaler()
+    df_encoded[cols_a_escalar] = scaler.fit_transform(df_encoded[cols_a_escalar])
+    
+    print(f"Preprocesamiento terminado. Dataset resultante: {df_encoded.shape}")
+    return df_encoded
+
+
+def entrenar_modelo_clasificacion(df: pd.DataFrame) -> Any:
+    """Entrena modelo XGBoost de clasificación para IS_LONGEVO."""
+    print("Entrenando modelo de clasificación XGBoost...")
+    
+    cols_excluir = ['SEQN', 'RIDAGEYR', 'IS_LONGEVO', 'CICLO_ORIGEN']
+    feature_cols = [c for c in df.columns if c not in cols_excluir]
+    
+    X = df[feature_cols]
+    y = df['IS_LONGEVO']
+    
+    # Calcular scale_pos_weight para compensar el desbalance
+    n_neg = (y == 0).sum()
+    n_pos = (y == 1).sum()
+    scale_pw = n_neg / n_pos if n_pos > 0 else 1.0
+    
+    xgb_param_dist = {
+        'n_estimators': [100, 200, 300, 500],
+        'max_depth': [3, 5, 7, 10],
+        'learning_rate': [0.01, 0.05, 0.1, 0.2],
+        'subsample': [0.7, 0.8, 0.9, 1.0],
+        'colsample_bytree': [0.7, 0.8, 0.9, 1.0],
+        'min_child_weight': [1, 3, 5],
+    }
+    
+    xgb_search = RandomizedSearchCV(
+        XGBClassifier(
+            scale_pos_weight=scale_pw,
+            random_state=42,
+            eval_metric='logloss',
+        ),
+        param_distributions=xgb_param_dist,
+        n_iter=30,
+        scoring='f1',
+        cv=StratifiedKFold(5, shuffle=True, random_state=42),
+        random_state=42,
+        n_jobs=-1
+    )
+    xgb_search.fit(X, y)
+    
+    print(f"Clasificación - Mejores hiperparámetros: {xgb_search.best_params_}")
+    print(f"Clasificación - Mejor F1 (CV): {xgb_search.best_score_:.4f}")
+    
+    return xgb_search.best_estimator_
+
+
+def entrenar_modelo_regresion(df: pd.DataFrame) -> Any:
+    """Entrena modelo XGBoost de regresión para RIDAGEYR."""
+    print("Entrenando modelo de regresión XGBoost...")
+    
+    cols_excluir = ['SEQN', 'RIDAGEYR', 'IS_LONGEVO', 'CICLO_ORIGEN']
+    feature_cols = [c for c in df.columns if c not in cols_excluir]
+    
+    X = df[feature_cols]
+    y = df['RIDAGEYR']
+    
+    xgb_param_dist = {
+        'n_estimators': [100, 200, 300, 500],
+        'max_depth': [3, 5, 7, 10],
+        'learning_rate': [0.01, 0.05, 0.1, 0.2],
+        'subsample': [0.7, 0.8, 0.9, 1.0],
+        'colsample_bytree': [0.7, 0.8, 0.9, 1.0],
+        'min_child_weight': [1, 3, 5],
+    }
+    
+    xgb_search = RandomizedSearchCV(
+        XGBRegressor(random_state=42, eval_metric='rmse'),
+        param_distributions=xgb_param_dist,
+        n_iter=30,
+        scoring='neg_mean_absolute_error',
+        cv=KFold(5, shuffle=True, random_state=42),
+        random_state=42,
+        n_jobs=-1
+    )
+    xgb_search.fit(X, y)
+    
+    print(f"Regresión - Mejores hiperparámetros: {xgb_search.best_params_}")
+    print(f"Regresión - Mejor MAE (CV): {-xgb_search.best_score_:.2f} años")
+    
+    return xgb_search.best_estimator_

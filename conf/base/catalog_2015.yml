@@ -3,3 +3,17 @@ raw_nhanes_2015:
   type: pandas.CSVDataset
   filepath: data/01_raw/nhanes_2015_maestra.csv
   # Si en el futuro falla por memoria, podemos cambiar type a pandas.ParquetDataset
+
+preprocessed_nhanes_2015:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/nhanes_2015_procesado.parquet
+
+modelo_clasificacion_nhanes_2015:
+  type: pickle.PickleDataset
+  filepath: data/06_models/xgb_clasificacion_2015.pkl
+  versioned: true
+
+modelo_regresion_nhanes_2015:
+  type: pickle.PickleDataset
+  filepath: data/06_models/xgb_regresion_2015.pkl
+  versioned: true
