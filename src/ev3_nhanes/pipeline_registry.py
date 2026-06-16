@@ -18,4 +18,3 @@ def register_pipelines() -> dict[str, Pipeline]:
         "nhanes_2013": nhanes_2013,
         "__default__": nhanes_2013,
     }
-

@@ -1,444 +1,245 @@
 # src/ev3_nhanes/pipelines/nhanes_2013/nodes.py
-import gzip
-import io
-import logging
-from pathlib import Path
-from typing import Any
 
-import numpy as np
 import pandas as pd
-import pyreadstat
-import requests
+import numpy as np
+from typing import Any
+from sklearn.impute import KNNImputer, SimpleImputer
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, KFold
+from xgboost import XGBClassifier, XGBRegressor
 
-logger = logging.getLogger(__name__)
+# ──────────────────────────────────────────────────────────────────────
+# Constantes de Configuración
+# ──────────────────────────────────────────────────────────────────────
+_EDAD_LONGEVO = 70
 
-BASE_DIR = Path("data/01_raw/nhanes_2013_2014")
+# El ciclo principal que tu grupo analiza
+_CICLO_BASE = {"año": "2013", "letra": "H", "nombre": "2013-2014"}
+
+# Los 4 ciclos históricos para rescatar a la clase minoritaria (Longevos)
+_CICLOS_HISTORICOS = [
+    {"año": "2011", "letra": "G", "nombre": "2011-2012"},
+    {"año": "2009", "letra": "F", "nombre": "2009-2010"},
+    {"año": "2007", "letra": "E", "nombre": "2007-2008"},
+    {"año": "2005", "letra": "D", "nombre": "2005-2006"},
+]
+
+_TABLAS_CLAVE = ["DEMO", "BMX", "BPX", "TCHOL", "GLU", "MCQ", "SMQ"]
 
 
-def download_xpt(name: str) -> pd.DataFrame:
-    """Descarga archivo XPT desde NHANES CDC o carga desde disco local como fallback."""
-    # URLs de descarga directa de CDC
-    url_map = {
-        "demo": "https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/DEMO_H.XPT",
-        "biopro": "https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.XPT",
-        "bmx": "https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BMX_H.XPT",
-        "bpx": "https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BPX_H.XPT",
-        "smq": "https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/SMQ_H.XPT",
+def _generar_url(tabla: str, año: str, letra: str) -> str:
+    """Genera la URL pública de la CDC basada en la tabla, el año y la letra."""
+    return f"https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/{año}/DataFiles/{tabla}_{letra}.xpt"
+
+
+def _limpiar_missing_sas(df: pd.DataFrame) -> pd.DataFrame:
+    """Convierte el valor centinela de SAS (5.397605e-79) a verdaderos NaNs."""
+    cols_num = df.select_dtypes(include=[np.number]).columns
+    for col in cols_num:
+        es_sas_missing = np.isclose(df[col], 5.397605e-79, atol=1e-85)
+        df.loc[es_sas_missing, col] = np.nan
+    return df
+
+
+def _descargar_ciclo(config_ciclo: dict, solo_longevos: bool = False) -> pd.DataFrame:
+    """Descarga las 7 tablas de un ciclo, las une y limpia los nulos de SAS."""
+    año = config_ciclo["año"]
+    letra = config_ciclo["letra"]
+    nombre = config_ciclo["nombre"]
+
+    print(f"\n--- Descargando Ciclo {nombre} ---")
+
+    # 1. Bajar tabla maestra (DEMO)
+    url_demo = _generar_url("DEMO", año, letra)
+    try:
+        df_maestra = pd.read_sas(url_demo)
+    except Exception as e:
+        print(f"Error descargando DEMO para {nombre}: {e}")
+        return pd.DataFrame()
+
+    df_maestra = _limpiar_missing_sas(df_maestra)
+
+    # 2. Aplicar filtro temprano si es un ciclo histórico (Ahorra muchísima RAM)
+    if solo_longevos:
+        if 'RIDAGEYR' in df_maestra.columns:
+            df_maestra = df_maestra[df_maestra['RIDAGEYR'] >= _EDAD_LONGEVO].copy()
+            print(f"Rescatados {len(df_maestra)} pacientes longevos.")
+        else:
+            return pd.DataFrame()
+
+    # 3. Descargar el resto de las tablas y unirlas
+    for tabla in _TABLAS_CLAVE:
+        if tabla == "DEMO":
+            continue
+
+        url = _generar_url(tabla, año, letra)
+        try:
+            df_temp = pd.read_sas(url)
+            df_temp = _limpiar_missing_sas(df_temp)
+
+            # Si estamos rescatando longevos, usamos LEFT join.
+            tipo_join = 'left' if solo_longevos else 'outer'
+            df_maestra = pd.merge(df_maestra, df_temp, on='SEQN', how=tipo_join)
+            print(f"  ✓ {tabla}_{letra} integrada.")
+        except Exception as e:
+            print(f"  x No se encontró {tabla}_{letra}: {e}")
+
+    # Dejamos una huella del ciclo de origen
+    df_maestra['CICLO_ORIGEN'] = nombre
+    return df_maestra
+
+
+def descargar_y_unir_2013() -> pd.DataFrame:
+    """
+    Nodo de Kedro: Descarga el ciclo 2013-2014 completo y añade pacientes >= 70 años
+    de los ciclos 2011, 2009, 2007 y 2005 para balancear la clase minoritaria.
+    """
+    print("Iniciando Pipeline de Extracción con Data Augmentation Histórico...")
+
+    # 1. Descargar ciclo base (Todos los pacientes)
+    df_final = _descargar_ciclo(_CICLO_BASE, solo_longevos=False)
+
+    # 2. Descargar e inyectar ciclos históricos (Solo longevos)
+    for ciclo in _CICLOS_HISTORICOS:
+        df_historico = _descargar_ciclo(ciclo, solo_longevos=True)
+        if not df_historico.empty:
+            df_final = pd.concat([df_final, df_historico], ignore_index=True)
+
+    print(f"\n¡Extracción Completada con Éxito! Dataset robustecido: {len(df_final)} pacientes totales.")
+    return df_final
+
+
+def preprocesar_datos_2013(df: pd.DataFrame) -> pd.DataFrame:
+    """Limpia, imputa y crea variable objetivo IS_LONGEVO."""
+    print("Iniciando preprocesamiento de datos...")
+
+    # 1. Limpieza inicial: eliminar nulos en la edad y menores de 18 años
+    df = df.dropna(subset=['RIDAGEYR'])
+    df = df[df['RIDAGEYR'] >= 18].copy()
+
+    # 2. Crear variable objetivo (IS_LONGEVO)
+    df['IS_LONGEVO'] = (df['RIDAGEYR'] >= _EDAD_LONGEVO).astype(int)
+
+    # 3. Identificar y filtrar variables deseadas
+    cols_id = ['SEQN']
+    cols_demo = ['RIDAGEYR', 'RIAGENDR', 'RIDRETH3', 'DMDEDUC2', 'DMDMARTL', 'DMDHHSIZ', 'DMDFMSIZ', 'INDFMPIR']
+    cols_bmx = ['BMXWT', 'BMXHT', 'BMXBMI', 'BMXWAIST', 'BMXLEG', 'BMXARML', 'BMXARMC']
+    cols_bp = ['BPXSY1', 'BPXDI1', 'BPXSY2', 'BPXDI2', 'BPXSY3', 'BPXDI3', 'BPXPLS']
+    cols_lab = ['LBXTC', 'LBXGLU']
+
+    cols_deseadas = cols_id + cols_demo + cols_bmx + cols_bp + cols_lab + ['IS_LONGEVO', 'CICLO_ORIGEN']
+    cols_seleccion = [c for c in cols_deseadas if c in df.columns]
+
+    df = df[cols_seleccion].copy()
+
+    cols_categoricas = ['RIAGENDR', 'RIDRETH3', 'DMDEDUC2', 'DMDMARTL']
+    cols_categoricas = [c for c in cols_categoricas if c in df.columns]
+
+    cols_numericas = [
+        'DMDHHSIZ', 'DMDFMSIZ', 'INDFMPIR',
+        'BMXWT', 'BMXHT', 'BMXBMI', 'BMXWAIST', 'BMXLEG', 'BMXARML', 'BMXARMC',
+        'BPXSY1', 'BPXDI1', 'BPXSY2', 'BPXDI2', 'BPXSY3', 'BPXDI3', 'BPXPLS',
+        'LBXTC', 'LBXGLU',
+    ]
+    cols_numericas = [c for c in cols_numericas if c in df.columns]
+
+    # 4. Imputación de nulos
+    knn_imputer = KNNImputer(n_neighbors=5, weights='uniform')
+    df[cols_numericas] = knn_imputer.fit_transform(df[cols_numericas])
+
+    simple_imputer = SimpleImputer(strategy='most_frequent')
+    df[cols_categoricas] = simple_imputer.fit_transform(df[cols_categoricas])
+
+    # 5. One-Hot Encoding
+    for col in cols_categoricas:
+        df[col] = df[col].astype(int).astype(str)
+    df_encoded = pd.get_dummies(df, columns=cols_categoricas, drop_first=True, dtype=int)
+
+    # 6. Escalado
+    cols_a_escalar = [c for c in cols_numericas if c in df_encoded.columns]
+    scaler = StandardScaler()
+    df_encoded[cols_a_escalar] = scaler.fit_transform(df_encoded[cols_a_escalar])
+
+    print(f"Preprocesamiento terminado. Dataset resultante: {df_encoded.shape}")
+    return df_encoded
+
+
+def entrenar_modelo_clasificacion(df: pd.DataFrame) -> Any:
+    """Entrena modelo XGBoost de clasificación para IS_LONGEVO."""
+    print("Entrenando modelo de clasificación XGBoost...")
+
+    cols_excluir = ['SEQN', 'RIDAGEYR', 'IS_LONGEVO', 'CICLO_ORIGEN']
+    feature_cols = [c for c in df.columns if c not in cols_excluir]
+
+    X = df[feature_cols]
+    y = df['IS_LONGEVO']
+
+    # Calcular scale_pos_weight para compensar el desbalance
+    n_neg = (y == 0).sum()
+    n_pos = (y == 1).sum()
+    scale_pw = n_neg / n_pos if n_pos > 0 else 1.0
+
+    xgb_param_dist = {
+        'n_estimators': [100, 200, 300, 500],
+        'max_depth': [3, 5, 7, 10],
+        'learning_rate': [0.01, 0.05, 0.1, 0.2],
+        'subsample': [0.7, 0.8, 0.9, 1.0],
+        'colsample_bytree': [0.7, 0.8, 0.9, 1.0],
+        'min_child_weight': [1, 3, 5],
     }
-    
-    url = url_map.get(name.lower())
-    if not url:
-        raise ValueError(f"Dataset '{name}' no reconocido. Opciones: {list(url_map.keys())}")
-    
-    # Intentar descargar desde CDC
-    try:
-        logger.info("Intentando descargar %s desde CDC...", name.upper())
-        response = requests.get(url, timeout=60)
-        response.raise_for_status()
-        
-        # Detectar tipo de contenido
-        content_type = response.headers.get('Content-Type', '').lower()
-        if 'html' in content_type:
-            raise ValueError("CDC devolvió HTML - archivo no disponible directamente")
-        
-        content = response.content
-        
-        # Verificar si el contenido está comprimido (gzip)
-        if content[:2] == b'\x1f\x8b':  # Magic bytes de gzip
-            content = gzip.decompress(content)
-        
-        # Leer XPT desde stream de bytes
-        bytes_stream = io.BytesIO(content)
-        df, _ = pyreadstat.read_xport(bytes_stream)
-        
-        logger.info(
-            "[OK] Descargado %s desde CDC: %s filas, %s columnas",
-            name.upper(),
-            df.shape[0],
-            df.shape[1],
-        )
-        
-    except Exception as e:
-        # Fallback: cargar desde archivo local si existe
-        local_file = BASE_DIR / f"{name.lower()}.parquet"
-        if local_file.exists():
-            logger.warning(
-                "No se pudo descargar %s desde CDC (%s). "
-                "Usando archivo local como fallback.",
-                name.upper(),
-                str(e)
-            )
-            df = pd.read_parquet(local_file)
-            logger.info(
-                "[OK] Cargado %s desde archivo local: %s filas, %s columnas",
-                name.upper(),
-                df.shape[0],
-                df.shape[1],
-            )
-        else:
-            raise ConnectionError(
-                f"Error descargando {name.upper()} desde CDC: {e}\n"
-                f"Tampoco se encontró archivo local en {local_file}"
-            ) from e
-    
-    # Asegurar que SEQN sea Int64
-    if "SEQN" in df.columns:
-        df["SEQN"] = pd.to_numeric(df["SEQN"], errors="coerce").astype("Int64")
 
-    return df
-
-
-def download_demo() -> pd.DataFrame:
-    return download_xpt("demo")
-
-
-def download_biopro() -> pd.DataFrame:
-    return download_xpt("biopro")
-
-
-def download_bmx() -> pd.DataFrame:
-    return download_xpt("bmx")
-
-
-def download_bpx() -> pd.DataFrame:
-    return download_xpt("bpx")
-
-
-def download_smq() -> pd.DataFrame:
-    return download_xpt("smq")
-
-
-def load_mortality() -> pd.DataFrame:
-    """Descarga archivo de mortalidad NHANES desde CDC o carga desde disco como fallback."""
-    url = "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/datalinkage/linked_mortality/NHANES_2013_2014_MORT_2019_PUBLIC.dat"
-    
-    # Intentar descargar desde CDC
-    try:
-        logger.info("Intentando descargar mortalidad desde CDC FTP...")
-        response = requests.get(url, timeout=60)
-        response.raise_for_status()
-        
-        content_type = response.headers.get('Content-Type', '').lower()
-        if 'html' in content_type:
-            raise ValueError("CDC devolvió HTML - archivo no disponible")
-        
-        content = response.content
-        
-        # Verificar si está comprimido
-        if content[:2] == b'\x1f\x8b':
-            content = gzip.decompress(content)
-        
-        bytes_stream = io.BytesIO(content)
-        
-    except Exception as e:
-        # Fallback: cargar desde archivo local si existe
-        local_file = BASE_DIR / "mortality.parquet"
-        if local_file.exists():
-            logger.warning(
-                "No se pudo descargar mortalidad desde CDC (%s). "
-                "Usando archivo local.",
-                str(e)
-            )
-            df_raw = pd.read_parquet(local_file)
-            # Retornar directamente ya que está formateado
-            logger.info(
-                "[OK] Cargada mortalidad desde archivo local: %s participantes",
-                len(df_raw),
-            )
-            return df_raw
-        else:
-            raise ConnectionError(
-                f"Error descargando mortalidad desde CDC: {e}\n"
-                f"Tampoco se encontró archivo local en {local_file}"
-            ) from e
-    
-    # Parsear archivo fixed-width descargado
-    cols = [
-        ("publicid", (0, 14)),
-        ("eligstat", (14, 15)),
-        ("mortstat", (15, 16)),
-        ("ucod_leading", (16, 19)),
-        ("diabetes", (19, 20)),
-        ("hyperten", (20, 21)),
-        ("permth_int", (42, 45)),
-        ("permth_exm", (45, 48)),
-    ]
-
-    mortality = pd.read_fwf(
-        bytes_stream,
-        colspecs=[c[1] for c in cols],
-        names=[c[0] for c in cols],
-        dtype=str,
+    xgb_search = RandomizedSearchCV(
+        XGBClassifier(
+            scale_pos_weight=scale_pw,
+            random_state=42,
+            eval_metric='logloss',
+        ),
+        param_distributions=xgb_param_dist,
+        n_iter=30,
+        scoring='f1',
+        cv=StratifiedKFold(5, shuffle=True, random_state=42),
+        random_state=42,
+        n_jobs=-1,
     )
+    xgb_search.fit(X, y)
 
-    mortality["SEQN"] = pd.to_numeric(
-        mortality["publicid"].str.strip(), errors="coerce"
-    ).astype("Int64")
-    mortality["eligstat"] = mortality["eligstat"].astype(str).str.strip()
-    mortality["mortstat"] = pd.to_numeric(mortality["mortstat"], errors="coerce")
-    mortality["permth_int"] = pd.to_numeric(mortality["permth_int"], errors="coerce")
-    mortality["permth_exm"] = pd.to_numeric(mortality["permth_exm"], errors="coerce")
+    print(f"Clasificación - Mejores hiperparámetros: {xgb_search.best_params_}")
+    print(f"Clasificación - Mejor F1 (CV): {xgb_search.best_score_:.4f}")
 
-    mortality = mortality[mortality["eligstat"] == "1"].copy()
-    mortality = mortality.dropna(subset=["SEQN", "mortstat", "permth_int"])
+    return xgb_search.best_estimator_
 
-    logger.info("[OK] Descargada mortalidad desde CDC: %s participantes elegibles", len(mortality))
-    logger.info(
-        "Tasa de mortalidad observada: %.2f%%",
-        mortality["mortstat"].mean() * 100,
+
+def entrenar_modelo_regresion(df: pd.DataFrame) -> Any:
+    """Entrena modelo XGBoost de regresión para RIDAGEYR."""
+    print("Entrenando modelo de regresión XGBoost...")
+
+    cols_excluir = ['SEQN', 'RIDAGEYR', 'IS_LONGEVO', 'CICLO_ORIGEN']
+    feature_cols = [c for c in df.columns if c not in cols_excluir]
+
+    X = df[feature_cols]
+    y = df['RIDAGEYR']
+
+    xgb_param_dist = {
+        'n_estimators': [100, 200, 300, 500],
+        'max_depth': [3, 5, 7, 10],
+        'learning_rate': [0.01, 0.05, 0.1, 0.2],
+        'subsample': [0.7, 0.8, 0.9, 1.0],
+        'colsample_bytree': [0.7, 0.8, 0.9, 1.0],
+        'min_child_weight': [1, 3, 5],
+    }
+
+    xgb_search = RandomizedSearchCV(
+        XGBRegressor(random_state=42, eval_metric='rmse'),
+        param_distributions=xgb_param_dist,
+        n_iter=30,
+        scoring='neg_mean_absolute_error',
+        cv=KFold(5, shuffle=True, random_state=42),
+        random_state=42,
+        n_jobs=-1,
     )
+    xgb_search.fit(X, y)
 
-    return mortality
+    print(f"Regresión - Mejores hiperparámetros: {xgb_search.best_params_}")
+    print(f"Regresión - Mejor MAE (CV): {-xgb_search.best_score_:.2f} años")
 
-
-def _prepare_module(
-    df: pd.DataFrame,
-    key: str = "SEQN",
-    keep: list[str] | None = None,
-) -> pd.DataFrame:
-    df = df.copy()
-
-    if key not in df.columns:
-        raise KeyError(f"La columna clave '{key}' no existe en el dataframe.")
-
-    df[key] = pd.to_numeric(df[key], errors="coerce").astype("Int64")
-    df = df.dropna(subset=[key]).copy()
-    df = df.drop_duplicates(subset=[key]).copy()
-
-    if keep is not None:
-        cols = [c for c in keep if c in df.columns]
-        if key not in cols:
-            cols = [key] + cols
-        df = df.loc[:, list(dict.fromkeys(cols))].copy()
-
-    return df
-
-
-def merge_datasets(
-    demo: pd.DataFrame,
-    biopro: pd.DataFrame,
-    bmx: pd.DataFrame,
-    bpx: pd.DataFrame,
-    smq: pd.DataFrame,
-    mortality: pd.DataFrame,
-) -> pd.DataFrame:
-    """Une módulos NHANES y mortalidad por SEQN."""
-    demo_keep = ["SEQN", "RIDAGEYR", "RIAGENDR"]
-    biopro_keep = ["SEQN", "LBXSCR"]
-    bmx_keep = ["SEQN", "BMXBMI"]
-    bpx_keep = ["SEQN", "BPXSY1", "BPXDI1"]
-    smq_keep = ["SEQN", "SMQ020"]
-    mortality_keep = ["SEQN", "mortstat", "permth_int", "permth_exm", "ucod_leading"]
-
-    demo = _prepare_module(demo, keep=demo_keep)
-    biopro = _prepare_module(biopro, keep=biopro_keep)
-    bmx = _prepare_module(bmx, keep=bmx_keep)
-    bpx = _prepare_module(bpx, keep=bpx_keep)
-    smq = _prepare_module(smq, keep=smq_keep)
-    mortality = _prepare_module(mortality, keep=mortality_keep)
-
-    merged = demo.merge(biopro, on="SEQN", how="inner", validate="one_to_one")
-    merged = merged.merge(bmx, on="SEQN", how="left", validate="one_to_one")
-    merged = merged.merge(bpx, on="SEQN", how="left", validate="one_to_one")
-    merged = merged.merge(smq, on="SEQN", how="left", validate="one_to_one")
-    merged = merged.merge(mortality, on="SEQN", how="inner", validate="one_to_one")
-
-    merged = merged.loc[:, ~merged.columns.duplicated()].copy()
-
-    logger.info(
-        "Dataset final mergeado: %s participantes, %s columnas",
-        merged.shape[0],
-        merged.shape[1],
-    )
-    logger.info("Columnas merged (primeras 40): %s", list(merged.columns)[:40])
-    logger.info("RIDAGEYR presente?: %s", "RIDAGEYR" in merged.columns)
-
-    return merged
-
-
-def engineer_features(
-    df: pd.DataFrame,
-    demographic_features: list,
-    lab_features: list,
-    duration_col: str,
-    event_col: str,
-) -> pd.DataFrame:
-    """Feature engineering para predicción de supervivencia."""
-    df = df.copy()
-
-    rename_map = {}
-    if "permth_int_mort" in df.columns and duration_col not in df.columns:
-        rename_map["permth_int_mort"] = duration_col
-    if "mortstat_mort" in df.columns and event_col not in df.columns:
-        rename_map["mortstat_mort"] = event_col
-    if rename_map:
-        df = df.rename(columns=rename_map)
-
-    if "RIAGENDR" in df.columns:
-        sex = pd.to_numeric(df["RIAGENDR"], errors="coerce")
-        df["is_female"] = sex.eq(2).astype("int8")
-
-    if {"LBXSCR", "RIDAGEYR", "is_female"}.issubset(df.columns):
-        creatinine = pd.to_numeric(df["LBXSCR"], errors="coerce")
-        age = pd.to_numeric(df["RIDAGEYR"], errors="coerce")
-        df["egfr"] = np.where(
-            df["is_female"].eq(1),
-            186 * (creatinine ** -1.154) * (age ** -0.203) * 0.742,
-            186 * (creatinine ** -1.154) * (age ** -0.203),
-        )
-
-    if "BMXBMI" in df.columns:
-        df["bmi"] = pd.to_numeric(df["BMXBMI"], errors="coerce")
-
-    if {"BPXSY1", "BPXDI1"}.issubset(df.columns):
-        systolic = pd.to_numeric(df["BPXSY1"], errors="coerce")
-        diastolic = pd.to_numeric(df["BPXDI1"], errors="coerce")
-        df["map"] = diastolic + (systolic - diastolic) / 3
-
-    if "SMQ020" in df.columns:
-        smoking = pd.to_numeric(df["SMQ020"], errors="coerce")
-        df["ever_smoked"] = smoking.eq(1).astype("int8")
-
-    base_features = list(dict.fromkeys(list(demographic_features) + list(lab_features)))
-    engineered_features = ["is_female", "egfr", "bmi", "map", "ever_smoked"]
-
-    requested = base_features + engineered_features + [duration_col, event_col]
-    keep_cols = [c for c in requested if c in df.columns]
-
-    result = df.loc[:, keep_cols].copy()
-    result = result.loc[:, ~result.columns.duplicated()].copy()
-
-    numeric_cols = [c for c in result.columns if c != event_col]
-    result[numeric_cols] = result[numeric_cols].apply(pd.to_numeric, errors="coerce")
-
-    result = result.dropna(subset=[duration_col, event_col]).copy()
-    result[event_col] = pd.to_numeric(result[event_col], errors="coerce")
-    result = result.dropna(subset=[event_col]).copy()
-    result[event_col] = result[event_col].astype("int8")
-
-    logger.info(
-        "Features finales: %s columnas, %s registros válidos",
-        len(result.columns),
-        len(result),
-    )
-    logger.info("Columnas finales: %s", list(result.columns))
-
-    return result
-
-
-def split_data(
-    df: pd.DataFrame,
-    test_size: float,
-    random_state: int,
-    event_col: str,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Divide train/test estratificando por evento."""
-    from sklearn.model_selection import train_test_split
-
-    # Validar que hay datos para dividir
-    if len(df) == 0:
-        logger.warning("[ADVERTENCIA] Dataset vacío - retornando dos dataframes vacíos")
-        empty_df = pd.DataFrame()
-        return empty_df, empty_df
-
-    # Si hay muy pocos registros para la división
-    min_rows_needed = max(2, int(len(df) * test_size) + 1)
-    if len(df) < min_rows_needed:
-        logger.warning(
-            "[ADVERTENCIA] Solo %d registros disponibles (se necesitan al menos %d para test_size=%.1f)",
-            len(df), min_rows_needed, test_size
-        )
-
-    train, test = train_test_split(
-        df,
-        test_size=test_size,
-        random_state=random_state,
-        stratify=df[event_col],
-    )
-
-    logger.info("Train: %s | Test: %s", len(train), len(test))
-    return train, test
-
-
-def train_cox_model(
-    train_df: pd.DataFrame,
-    duration_col: str,
-    event_col: str,
-) -> Any:
-    """Entrena un modelo Cox Proportional Hazards."""
-    from lifelines import CoxPHFitter
-
-    # Validar que hay datos para entrenar
-    if len(train_df) == 0:
-        logger.warning("[ADVERTENCIA] Dataset de entrenamiento vacío - retornando modelo vacío (dict)")
-        return {"_empty_model": True, "error": "No training data available"}
-
-    train_df = train_df.copy()
-
-    numeric_cols = [
-        c for c in train_df.columns
-        if c not in {duration_col, event_col}
-    ]
-
-    train_df[numeric_cols] = train_df[numeric_cols].apply(pd.to_numeric, errors="coerce")
-    train_df[duration_col] = pd.to_numeric(train_df[duration_col], errors="coerce")
-    train_df[event_col] = pd.to_numeric(train_df[event_col], errors="coerce")
-
-    before = len(train_df)
-    train_df = train_df.dropna(subset=[duration_col, event_col] + numeric_cols).copy()
-    after = len(train_df)
-
-    logger.info("Filas antes de cox: %s | después de dropna: %s", before, after)
-
-    cph = CoxPHFitter(penalizer=0.1)
-    cph.fit(
-        train_df,
-        duration_col=duration_col,
-        event_col=event_col,
-        show_progress=False,
-    )
-
-    logger.info("Cox C-index (train): %.4f", cph.concordance_index_)
-    return cph
-
-
-def evaluate_model(
-    model: Any,
-    test_df: pd.DataFrame,
-    duration_col: str,
-    event_col: str,
-) -> dict[str, float]:
-    """Evalúa el modelo de supervivencia con concordance index."""
-    from lifelines.utils import concordance_index
-
-    # Validar que hay modelo para evaluar
-    if isinstance(model, dict) and model.get("_empty_model"):
-        logger.warning("[ADVERTENCIA] Modelo vacío (sin datos de entrenamiento) - retornando métricas vacías")
-        return {"c_index_test": 0.0}
-
-    if len(test_df) == 0:
-        logger.warning("[ADVERTENCIA] Dataset de prueba vacío - retornando métricas vacías")
-        return {"c_index_test": 0.0}
-
-    test_df = test_df.copy()
-
-    cols = [c for c in test_df.columns if c not in {duration_col, event_col}]
-    test_df[cols] = test_df[cols].apply(pd.to_numeric, errors="coerce")
-    test_df[duration_col] = pd.to_numeric(test_df[duration_col], errors="coerce")
-    test_df[event_col] = pd.to_numeric(test_df[event_col], errors="coerce")
-
-    before = len(test_df)
-    test_df = test_df.dropna(subset=[duration_col, event_col] + cols).copy()
-    after = len(test_df)
-    logger.info("Filas antes de evaluar: %s | después de dropna: %s", before, after)
-
-    risk_scores = model.predict_partial_hazard(test_df)
-    c_index = concordance_index(
-        test_df[duration_col],
-        -risk_scores,
-        test_df[event_col],
-    )
-
-    metrics = {"c_index_test": round(float(c_index), 4)}
-    logger.info("C-index test: %.4f", c_index)
-    return metrics
+    return xgb_search.best_estimator_

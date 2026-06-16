@@ -1,0 +1,185 @@
+# ============================================================
+# parameters/nhanes_2013.yml
+# Pipeline: nhanes_2013
+# Ciclo NHANES: 2011-2012 / 2013-2014
+# Equivalente al parameters del ciclo 2015 de Álvaro
+# ============================================================
+
+# ----------------------------------------------------------
+# 1. RUTAS DE DATOS
+# ----------------------------------------------------------
+raw_data_path: "data/01_raw/nhanes_2013_maestra.csv"
+processed_data_path: "data/02_intermediate/nhanes_2013_procesado.csv"
+metadata_path: "data/02_intermediate/metadata_preprocesamiento_2013.json"
+
+# ----------------------------------------------------------
+# 2. LIMPIEZA Y FILTRADO
+# ----------------------------------------------------------
+# Umbral para detectar valores SAS missing (e.g. ~5.4e-79)
+sas_missing_threshold: 1.0e-70
+
+# Solo adultos >= 18 años
+edad_minima: 18
+
+# NHANES 2013-2014 codifica edades máximas en 80 (top-coded)
+edad_maxima: 80
+
+# ----------------------------------------------------------
+# 3. SELECCIÓN DE VARIABLES
+# ----------------------------------------------------------
+# Columna identificador único
+col_id: "SEQN"
+
+# Targets
+col_target_bin: "ISLONGEVO"    # Clasificación binaria (1 si edad >= umbral_longevo)
+col_target_cont: "RIDAGEYR"    # Regresión continua (edad en años)
+
+# Umbral de longevidad: >= 70 años → ISLONGEVO = 1
+umbral_longevo: 70
+
+# Variables demográficas
+cols_demo:
+  - RIDAGEYR   # Edad en años (target continuo — NO incluir en features)
+  - RIAGENDR   # Género (1=M, 2=F) — categórica
+  - RIDRETH3   # Raza/Etnia — categórica
+  - DMDEDUC2   # Nivel educativo adultos >20 — categórica ordinal
+  - DMDMARTL   # Estado civil — categórica
+  - DMDHHSIZ   # Tamaño del hogar
+  - DMDFMSIZ   # Tamaño de la familia
+  - INDFMPIR   # Ratio ingreso/pobreza
+
+# Variables antropométricas (BMX)
+cols_bmx:
+  - BMXWT      # Peso (kg)
+  - BMXHT      # Talla (cm)
+  - BMXBMI     # IMC
+  - BMXWAIST   # Circunferencia de cintura (cm)
+  - BMXLEG     # Longitud de pierna (cm)
+  - BMXARML    # Longitud de brazo (cm)
+  - BMXARMC    # Circunferencia de brazo (cm)
+
+# Variables de presión arterial y pulso (BPX)
+cols_bp:
+  - BPXSY1     # Sistólica 1ª lectura
+  - BPXDI1     # Diastólica 1ª lectura
+  - BPXSY2     # Sistólica 2ª lectura
+  - BPXDI2     # Diastólica 2ª lectura
+  - BPXSY3     # Sistólica 3ª lectura
+  - BPXDI3     # Diastólica 3ª lectura
+  - BPXPLS     # Pulso (latidos/min)
+
+# Variables de laboratorio (LBX)
+cols_lab:
+  - LBXTC      # Colesterol total (mg/dL)
+  - LBXGLU     # Glucosa en ayunas (mg/dL)
+
+# Columnas a excluir de features (IDs, targets, trazabilidad)
+cols_excluir:
+  - SEQN
+  - RIDAGEYR
+  - ISLONGEVO
+  - CICLOORIGEN   # Variable de trazabilidad del data augmentation
+
+# Variables categóricas (codificadas como numéricas en NHANES)
+cols_categoricas:
+  - RIAGENDR
+  - RIDRETH3
+  - DMDEDUC2
+  - DMDMARTL
+
+# Variables numéricas a escalar con StandardScaler
+cols_numericas:
+  - DMDHHSIZ
+  - DMDFMSIZ
+  - INDFMPIR
+  - BMXWT
+  - BMXHT
+  - BMXBMI
+  - BMXWAIST
+  - BMXLEG
+  - BMXARML
+  - BMXARMC
+  - BPXSY1
+  - BPXDI1
+  - BPXSY2
+  - BPXDI2
+  - BPXSY3
+  - BPXDI3
+  - BPXPLS
+  - LBXTC
+  - LBXGLU
+
+# ----------------------------------------------------------
+# 4. PREPROCESAMIENTO
+# ----------------------------------------------------------
+# KNNImputer para variables numéricas
+knn_imputer_n_neighbors: 5
+knn_imputer_weights: "uniform"
+
+# SimpleImputer para variables categóricas
+simple_imputer_strategy: "most_frequent"
+
+# One-Hot Encoding
+ohe_drop_first: true
+
+# ----------------------------------------------------------
+# 5. SPLIT TRAIN/TEST
+# ----------------------------------------------------------
+test_size: 0.2
+random_state: 42
+stratify: true   # Estratificado por ISLONGEVO
+
+# ----------------------------------------------------------
+# 6. MODELOS DE CLASIFICACIÓN SUPERVISADA
+# ----------------------------------------------------------
+
+# --- Decision Tree ---
+dt_param_dist:
+  max_depth: [3, 5, 7, 10, 15, null]
+  min_samples_split: [2, 5, 10, 20]
+  min_samples_leaf: [1, 2, 5, 10]
+  criterion: ["gini", "entropy"]
+
+# --- Random Forest ---
+rf_param_dist:
+  n_estimators: [100, 200, 300, 500]
+  max_depth: [5, 10, 15, 20, null]
+  min_samples_split: [2, 5, 10]
+  min_samples_leaf: [1, 2, 5]
+  max_features: ["sqrt", "log2"]
+
+# --- XGBoost ---
+xgb_param_dist:
+  n_estimators: [100, 200, 300, 500]
+  max_depth: [3, 5, 7, 10]
+  learning_rate: [0.01, 0.05, 0.1, 0.2]
+  subsample: [0.7, 0.8, 0.9, 1.0]
+  colsample_bytree: [0.7, 0.8, 0.9, 1.0]
+  min_child_weight: [1, 3, 5]
+
+# Hiperparámetros de búsqueda aleatoria (compartidos)
+randomized_search_n_iter: 30
+randomized_search_scoring: "f1"
+randomized_search_cv_folds: 5
+
+# ----------------------------------------------------------
+# 7. APRENDIZAJE NO SUPERVISADO (PCA + K-Means)
+# ----------------------------------------------------------
+
+# PCA
+pca_random_state: 42
+pca_n_components_varianza_objetivo: 0.90   # Retener 90% de varianza
+
+# K-Means
+kmeans_n_clusters: 4
+kmeans_random_state: 42
+kmeans_max_iter: 300
+kmeans_n_init: 10
+
+# ----------------------------------------------------------
+# 8. RUTAS DE SALIDA (REPORTING)
+# ----------------------------------------------------------
+output_pca_scree_plot: "data/08_reporting/nhanes_2013_pca_screeplot.png"
+output_cluster_boxplots: "data/08_reporting/nhanes_2013_cluster_boxplots.png"
+output_confusion_matrix: "data/08_reporting/nhanes_2013_confusion_matrix.png"
+output_feature_importance: "data/08_reporting/nhanes_2013_feature_importance.png"
