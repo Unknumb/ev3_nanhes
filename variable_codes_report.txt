@@ -1,0 +1,136 @@
+================================================================================
+NHANES 2017-2018 VARIABLE CODES REPORT
+Reporte de códigos de variables categóricas
+================================================================================
+
+Dataset: nhanes_2017_2018_merged.csv
+Total registros: 6,401
+
+
+================================================================================
+VARIABLE: RIAGENDR
+================================================================================
+Nombre: Gender / Género
+Descripcion: Género del participante
+
+CODIGO -> SIGNIFICADO                    FRECUENCIA      PORCENTAJE
+--------------------------------------------------------------------------------
+   1 -> Hombre (Male)                              3115       48.66%
+   2 -> Mujer (Female)                             3286       51.34%
+
+RESUMEN DE CATEGORIAS:
+--------------------------------------------------------------------------------
+Valores válidos:       6401  (100.00%)
+Refused (7):              0  (  0.00%)
+Don't know (9):           0  (  0.00%)
+Missing (NaN):            0  (  0.00%)
+────────────────────────────────────────────────────────────────────────────────
+TOTAL:                 6401  (100.00%)
+
+
+================================================================================
+VARIABLE: DIQ010
+================================================================================
+Nombre: Doctor told you have diabetes / Doctor dijo que tiene diabetes
+Descripcion: Diagnóstico de diabetes por médico
+
+CODIGO -> SIGNIFICADO                    FRECUENCIA      PORCENTAJE
+--------------------------------------------------------------------------------
+   1 -> Sí - Doctor said YES (Doctor dijo que sí)    846       13.22%
+   2 -> No - Doctor said NO (Doctor dijo que no)   5378       84.02%
+   3 -> Borderline / Prediabetes                    173        2.70%
+   9 -> Don't know (No sabe)                          4        0.06%
+
+RESUMEN DE CATEGORIAS:
+--------------------------------------------------------------------------------
+Valores válidos:       6397  ( 99.94%)
+Refused (7):              0  (  0.00%)
+Don't know (9):           4  (  0.06%)
+Missing (NaN):            0  (  0.00%)
+────────────────────────────────────────────────────────────────────────────────
+TOTAL:                 6401  (100.00%)
+
+
+================================================================================
+VARIABLE: SMQ020
+================================================================================
+Nombre: Do you now smoke cigarettes / ¿Fuma cigarrillos ahora?
+Descripcion: Fumar cigarrillos actualmente
+
+CODIGO -> SIGNIFICADO                    FRECUENCIA      PORCENTAJE
+--------------------------------------------------------------------------------
+   1 -> Yes - Now smokes (Sí, fuma ahora)          2232       34.87%
+   2 -> No - Does not smoke (No, no fuma)          3301       51.57%
+ NaN -> Missing (No disponible)                     868       13.56%
+
+RESUMEN DE CATEGORIAS:
+--------------------------------------------------------------------------------
+Valores válidos:       5533  ( 86.44%)
+Refused (7):              0  (  0.00%)
+Don't know (9):           0  (  0.00%)
+Missing (NaN):          868  ( 13.56%)
+────────────────────────────────────────────────────────────────────────────────
+TOTAL:                 6401  (100.00%)
+
+
+================================================================================
+VARIABLE: MORTSTAT
+================================================================================
+Nombre: Mortality Status / Estado de Mortalidad
+Descripcion: Estado de mortalidad del participante
+
+CODIGO -> SIGNIFICADO                    FRECUENCIA      PORCENTAJE
+--------------------------------------------------------------------------------
+   0 -> Alive (Vivo)                                105        1.64%
+   1 -> Deceased (Fallecido)                         10        0.16%
+  10 -> Unknown                                       9        0.14%
+  11 -> Unknown                                       6        0.09%
+ NaN -> Missing (No disponible)                    6271       97.97%
+
+RESUMEN DE CATEGORIAS:
+--------------------------------------------------------------------------------
+Valores válidos:        130  (  2.03%)
+Refused (7):              0  (  0.00%)
+Don't know (9):           0  (  0.00%)
+Missing (NaN):         6271  ( 97.97%)
+────────────────────────────────────────────────────────────────────────────────
+TOTAL:                 6401  (100.00%)
+
+
+================================================================================
+RESUMEN COMPARATIVO DE DATOS VALIDOS
+================================================================================
+
+Variable        Válidos      Refused      Don't know   Missing     
+--------------------------------------------------------------------------------
+RIAGENDR        6401         0            0            0           
+DIQ010          6397         0            4            0           
+SMQ020          5533         0            0            868         
+MORTSTAT        130          0            0            6271        
+
+================================================================================
+NOTAS IMPORTANTES
+================================================================================
+
+1. VALORES ESPECIALES EN NHANES:
+   - Código 7: Refused (Rechazado) - Participante rechazó responder
+   - Código 9: Don't know (No sabe) - Participante desconoce la respuesta
+   - NaN: Missing - Valor no disponible (no aplicable, no preguntado)
+
+2. DEFINICION DE 'VALORES VALIDOS':
+   - Incluye solo respuestas reales (1, 2, 3) según la variable
+   - Excluye Refused (7), Don't know (9) y Missing (NaN)
+   - Estos son los únicos valores que deben usarse para modelado
+
+3. DATOS FALTANTES POR VARIABLE:
+   - RIAGENDR: 0 valores missing (datos completos)
+   - DIQ010: 0 valores missing (datos completos)
+   - SMQ020: 868 valores missing (13.56% de los datos)
+   - MORTSTAT: 6,271 valores missing (97.97% de los datos)
+
+4. IMPACTO EN MODELADO:
+   - RIAGENDR y DIQ010: Listos para usar sin limpieza
+   - SMQ020: Decidir si imputar o excluir 868 registros faltantes
+   - MORTSTAT: Usar solo 115 registros válidos (alto desbalance)
+
+================================================================================

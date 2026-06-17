@@ -1,0 +1,302 @@
+================================================================================
+INSPECCIÓN INICIAL - DATASETS NHANES 2017-2018
+================================================================================
+
+
+────────────────────────────────────────────────────────────────────────────────
+DATASET: DEMO_J
+────────────────────────────────────────────────────────────────────────────────
+Filas: 9254
+Columnas totales: 46
+Tiene SEQN: True
+
+Lista de columnas:
+   1. SEQN
+   2. SDDSRVYR
+   3. RIDSTATR
+   4. RIAGENDR
+   5. RIDAGEYR
+   6. RIDAGEMN
+   7. RIDRETH1
+   8. RIDRETH3
+   9. RIDEXMON
+  10. RIDEXAGM
+  11. DMQMILIZ
+  12. DMQADFC
+  13. DMDBORN4
+  14. DMDCITZN
+  15. DMDYRSUS
+  16. DMDEDUC3
+  17. DMDEDUC2
+  18. DMDMARTL
+  19. RIDEXPRG
+  20. SIALANG
+  21. SIAPROXY
+  22. SIAINTRP
+  23. FIALANG
+  24. FIAPROXY
+  25. FIAINTRP
+  26. MIALANG
+  27. MIAPROXY
+  28. MIAINTRP
+  29. AIALANGA
+  30. DMDHHSIZ
+  31. DMDFMSIZ
+  32. DMDHHSZA
+  33. DMDHHSZB
+  34. DMDHHSZE
+  35. DMDHRGND
+  36. DMDHRAGZ
+  37. DMDHREDZ
+  38. DMDHRMAZ
+  39. DMDHSEDZ
+  40. WTINT2YR
+  41. WTMEC2YR
+  42. SDMVPSU
+  43. SDMVSTRA
+  44. INDHHIN2
+  45. INDFMIN2
+  46. INDFMPIR
+
+Candidatos identificados:
+  Edad: RIDAGEYR, RIDAGEMN
+  Sexo: RIAGENDR
+  IMC: No encontrado
+  Presión Arterial: No encontrado
+  Diabetes: No encontrado
+  Tabaquismo: No encontrado
+  Estado Mortalidad: No encontrado
+  Meses Seguimiento: No encontrado
+
+────────────────────────────────────────────────────────────────────────────────
+DATASET: BMX_J
+────────────────────────────────────────────────────────────────────────────────
+Filas: 8704
+Columnas totales: 21
+Tiene SEQN: True
+
+Lista de columnas:
+   1. SEQN
+   2. BMDSTATS
+   3. BMXWT
+   4. BMIWT
+   5. BMXRECUM
+   6. BMIRECUM
+   7. BMXHEAD
+   8. BMIHEAD
+   9. BMXHT
+  10. BMIHT
+  11. BMXBMI
+  12. BMXLEG
+  13. BMILEG
+  14. BMXARML
+  15. BMIARML
+  16. BMXARMC
+  17. BMIARMC
+  18. BMXWAIST
+  19. BMIWAIST
+  20. BMXHIP
+  21. BMIHIP
+
+Candidatos identificados:
+  Edad: No encontrado
+  Sexo: No encontrado
+  IMC: BMIWT, BMIRECUM, BMIHEAD, BMIHT, BMXBMI, BMILEG, BMIARML, BMIARMC, BMIWAIST, BMIHIP
+  Presión Arterial: No encontrado
+  Diabetes: No encontrado
+  Tabaquismo: No encontrado
+  Estado Mortalidad: No encontrado
+  Meses Seguimiento: No encontrado
+
+────────────────────────────────────────────────────────────────────────────────
+DATASET: BPX_J
+────────────────────────────────────────────────────────────────────────────────
+Filas: 8704
+Columnas totales: 21
+Tiene SEQN: True
+
+Lista de columnas:
+   1. SEQN
+   2. PEASCCT1
+   3. BPXCHR
+   4. BPAARM
+   5. BPACSZ
+   6. BPXPLS
+   7. BPXPULS
+   8. BPXPTY
+   9. BPXML1
+  10. BPXSY1
+  11. BPXDI1
+  12. BPAEN1
+  13. BPXSY2
+  14. BPXDI2
+  15. BPAEN2
+  16. BPXSY3
+  17. BPXDI3
+  18. BPAEN3
+  19. BPXSY4
+  20. BPXDI4
+  21. BPAEN4
+
+Candidatos identificados:
+  Edad: No encontrado
+  Sexo: No encontrado
+  IMC: No encontrado
+  Presión Arterial: BPXPULS, BPXSY1, BPXDI1, BPXSY2, BPXDI2, BPXSY3, BPXDI3, BPXSY4, BPXDI4
+  Diabetes: No encontrado
+  Tabaquismo: No encontrado
+  Estado Mortalidad: No encontrado
+  Meses Seguimiento: No encontrado
+
+────────────────────────────────────────────────────────────────────────────────
+DATASET: DIQ_J
+────────────────────────────────────────────────────────────────────────────────
+Filas: 8897
+Columnas totales: 54
+Tiene SEQN: True
+
+Lista de columnas:
+   1. SEQN
+   2. DIQ010
+   3. DID040
+   4. DIQ160
+   5. DIQ170
+   6. DIQ172
+   7. DIQ175A
+   8. DIQ175B
+   9. DIQ175C
+  10. DIQ175D
+  11. DIQ175E
+  12. DIQ175F
+  13. DIQ175G
+  14. DIQ175H
+  15. DIQ175I
+  16. DIQ175J
+  17. DIQ175K
+  18. DIQ175L
+  19. DIQ175M
+  20. DIQ175N
+  21. DIQ175O
+  22. DIQ175P
+  23. DIQ175Q
+  24. DIQ175R
+  25. DIQ175S
+  26. DIQ175T
+  27. DIQ175U
+  28. DIQ175V
+  29. DIQ175W
+  30. DIQ175X
+  31. DIQ180
+  32. DIQ050
+  33. DID060
+  34. DIQ060U
+  35. DIQ070
+  36. DIQ230
+  37. DIQ240
+  38. DID250
+  39. DID260
+  40. DIQ260U
+  41. DIQ275
+  42. DIQ280
+  43. DIQ291
+  44. DIQ300S
+  45. DIQ300D
+  46. DID310S
+  47. DID310D
+  48. DID320
+  49. DID330
+  50. DID341
+  51. DID350
+  52. DIQ350U
+  53. DIQ360
+  54. DIQ080
+
+Candidatos identificados:
+  Edad: No encontrado
+  Sexo: No encontrado
+  IMC: No encontrado
+  Presión Arterial: No encontrado
+  Diabetes: DIQ010, DIQ160, DIQ170
+  Tabaquismo: No encontrado
+  Estado Mortalidad: No encontrado
+  Meses Seguimiento: No encontrado
+
+────────────────────────────────────────────────────────────────────────────────
+DATASET: SMQ_J
+────────────────────────────────────────────────────────────────────────────────
+Filas: 6724
+Columnas totales: 37
+Tiene SEQN: True
+
+Lista de columnas:
+   1. SEQN
+   2. SMQ020
+   3. SMD030
+   4. SMQ040
+   5. SMQ050Q
+   6. SMQ050U
+   7. SMD057
+   8. SMQ078
+   9. SMD641
+  10. SMD650
+  11. SMD093
+  12. SMDUPCA
+  13. SMD100BR
+  14. SMD100FL
+  15. SMD100MN
+  16. SMD100LN
+  17. SMD100TR
+  18. SMD100NI
+  19. SMD100CO
+  20. SMQ621
+  21. SMD630
+  22. SMQ661
+  23. SMQ665A
+  24. SMQ665B
+  25. SMQ665C
+  26. SMQ665D
+  27. SMQ670
+  28. SMQ848
+  29. SMQ852Q
+  30. SMQ852U
+  31. SMQ890
+  32. SMQ895
+  33. SMQ900
+  34. SMQ905
+  35. SMQ910
+  36. SMQ915
+  37. SMAQUEX2
+
+Candidatos identificados:
+  Edad: No encontrado
+  Sexo: No encontrado
+  IMC: No encontrado
+  Presión Arterial: No encontrado
+  Diabetes: No encontrado
+  Tabaquismo: SMQ020, SMQ040, SMQ050Q, SMQ050U, SMQ078, SMQ621, SMQ661, SMQ665A, SMQ665B, SMQ665C, SMQ665D, SMQ670, SMQ848, SMQ852Q, SMQ852U, SMQ890, SMQ895, SMQ900, SMQ905, SMQ910, SMQ915
+  Estado Mortalidad: No encontrado
+  Meses Seguimiento: No encontrado
+
+────────────────────────────────────────────────────────────────────────────────
+DATASET: MORTALITY
+────────────────────────────────────────────────────────────────────────────────
+Filas: 9254
+Columnas totales: 5
+Tiene SEQN: True
+
+Lista de columnas:
+   1. SEQN
+   2. ELIGSTAT
+   3. MORTSTAT
+   4. DODPAT
+   5. FUTIME
+
+Candidatos identificados:
+  Edad: No encontrado
+  Sexo: No encontrado
+  IMC: No encontrado
+  Presión Arterial: No encontrado
+  Diabetes: No encontrado
+  Tabaquismo: No encontrado
+  Estado Mortalidad: ELIGSTAT, MORTSTAT, DODPAT
+  Meses Seguimiento: FUTIME
