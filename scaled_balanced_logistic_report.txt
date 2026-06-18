@@ -1,0 +1,89 @@
+﻿SCALED BALANCED LOGISTIC REGRESSION REPORT
+================================================================================
+Dataset: data\05_model_input\nhanes_2017_2018_model_baseline.csv
+Objetivo: mortalidad
+Variables predictoras: edad, sexo, imc, presion_sistolica, presion_diastolica, diabetes, fumador
+Modelo: Pipeline(SimpleImputer/ColumnTransformer -> StandardScaler -> LogisticRegression(class_weight='balanced'))
+Split: test_size=0.2, random_state=42, stratify=mortalidad
+No se modifico el dataset y no se crearon nuevas variables.
+
+Imputacion dentro del pipeline
+--------------------------------------------------------------------------------
+presion_sistolica: SimpleImputer(strategy='median')
+presion_diastolica: SimpleImputer(strategy='median')
+diabetes: SimpleImputer(strategy='most_frequent')
+edad, sexo, imc, fumador: sin imputacion; no tenian nulos en el dataset baseline.
+
+Distribucion de mortalidad
+--------------------------------------------------------------------------------
+Train: 0=4227, 1=93
+Test: 0=1058, 1=23
+
+1-5. Metricas del modelo scaled balanced en test
+--------------------------------------------------------------------------------
+Accuracy: 0.7262
+Precision: 0.0404
+Recall: 0.5217
+F1-score: 0.0750
+ROC-AUC: 0.7530
+
+6. Matriz de confusion
+--------------------------------------------------------------------------------
+Filas = clase real; columnas = prediccion. Orden: 0 vivo, 1 fallecido.
+[[TN=773, FP=285],
+ [FN=11, TP=12]]
+
+7. Coeficientes estandarizados ordenados por importancia absoluta
+--------------------------------------------------------------------------------
+          variable coeficiente_estandarizado importancia_absoluta
+              edad                  1.417356             1.417356
+           fumador                  0.266962             0.266962
+               imc                 -0.264830             0.264830
+              sexo                 -0.150499             0.150499
+          diabetes                  0.113118             0.113118
+presion_diastolica                 -0.073617             0.073617
+ presion_sistolica                  0.049641             0.049641
+
+8. Comparacion contra modelos anteriores
+--------------------------------------------------------------------------------
+Metrica          Baseline     Balanced       Scaled
+----------------------------------------------------
+Accuracy           0.9787       0.7271       0.7262
+Precision          0.0000       0.0405       0.0404
+Recall             0.0000       0.5217       0.5217
+F1-score           0.0000       0.0752       0.0750
+ROC-AUC            0.7512       0.7528       0.7530
+
+Matrices de confusion comparadas
+--------------------------------------------------------------------------------
+baseline_model_report.txt:
+[[TN=1058, FP=0],
+ [FN=23, TP=0]]
+balanced_logistic_report.txt:
+[[TN=774, FP=284],
+ [FN=11, TP=12]]
+scaled_balanced_logistic_report.txt:
+[[TN=773, FP=285],
+ [FN=11, TP=12]]
+
+9. Conclusion
+--------------------------------------------------------------------------------
+El escalado no mejoro claramente el modelo frente a la version balanced sin escalado.
+
+Recomendacion como baseline final: balanced_logistic_report.txt.
+
+Justificacion:
+- Recall: baseline=0.0000, balanced=0.5217, scaled=0.5217. Para detectar riesgo de mortalidad, el baseline sin balanceo queda descartado porque no detecta fallecidos.
+- Precision: baseline=0.0000, balanced=0.0405, scaled=0.0404. La precision sigue baja por el fuerte desbalance, y balanced queda levemente por encima de scaled.
+- F1-score: baseline=0.0000, balanced=0.0752, scaled=0.0750. F1 resume el tradeoff entre precision y recall; balanced queda levemente mejor sin sacrificar recall.
+- ROC-AUC: baseline=0.7512, balanced=0.7528, scaled=0.7530. ROC-AUC evalua ranking de riesgo; scaled queda apenas por encima, pero la diferencia es minima frente a la ventaja de balanced en precision y F1.
+
+Para este objetivo, conviene priorizar un modelo que identifique fallecidos aunque genere falsos positivos. Como scaled y balanced detectan los mismos fallecidos, pero balanced tiene precision y F1 apenas mejores, se recomienda balanced_logistic_report.txt como baseline final de desempeno. La version scaled balanced queda como una variante util para interpretar coeficientes estandarizados. Luego conviene ajustar umbral de decision y validar con cross-validation antes de probar modelos mas complejos.
+
+Confirmacion
+--------------------------------------------------------------------------------
+No se modifico el dataset.
+No se crearon nuevas variables.
+No se probo Random Forest.
+No se probo XGBoost.
+
