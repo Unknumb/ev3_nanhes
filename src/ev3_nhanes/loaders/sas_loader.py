@@ -1,7 +1,7 @@
 """Custom loaders for SAS and mortality data files from URLs using pyreadstat."""
 
 from typing import Any, Dict
-from io import BytesIO
+from io import BytesIO, StringIO
 import requests
 import pyreadstat
 import pandas as pd
@@ -85,13 +85,32 @@ class MortalityDataset(AbstractDataset):
         response = requests.get(self.filepath)
         response.raise_for_status()
         
-        # Read as space-delimited text file
-        # The mortality file is typically space or tab delimited
-        df = pd.read_csv(
-            BytesIO(response.content),
-            sep=r'\s+',  # Flexible whitespace delimiter
-            engine='python'
+        content = response.content.decode("latin-1", errors="ignore")
+
+        # NHANES linked mortality files are fixed-width, not delimited.
+        # FUTIME is read from the public follow-up months from MEC exam field.
+        df = pd.read_fwf(
+            StringIO(content),
+            colspecs=[(0, 6), (14, 15), (15, 16), (45, 48)],
+            names=["SEQN", "ELIGSTAT", "MORTSTAT", "FUTIME"],
+            na_values=[".", "..", ""],
         )
+
+        for column in ["SEQN", "ELIGSTAT", "MORTSTAT", "FUTIME"]:
+            df[column] = pd.to_numeric(df[column], errors="coerce")
+
+        invalid_mortstat = sorted(
+            df.loc[
+                df["MORTSTAT"].notna() & ~df["MORTSTAT"].isin([0, 1]),
+                "MORTSTAT",
+            ].unique()
+        )
+        if invalid_mortstat:
+            raise ValueError(
+                "Invalid MORTSTAT values found after fixed-width parsing: "
+                f"{invalid_mortstat}. Expected only 0, 1, or NaN."
+            )
+
         self._data = df
         
         return df
@@ -116,5 +135,9 @@ class MortalityDataset(AbstractDataset):
     def _version(self) -> None:
         """Return None as versioning is not supported."""
         return None
+
+    def _describe(self) -> dict[str, Any]:
+        """Describe the dataset configuration."""
+        return {"filepath": self.filepath}
 
 
