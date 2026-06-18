@@ -1,0 +1,87 @@
+BASELINE LOGISTIC REGRESSION MODEL REPORT
+================================================================================
+Dataset: data\05_model_input\nhanes_2017_2018_model_baseline.csv
+Objetivo: mortalidad
+Variables predictoras: edad, sexo, imc, presion_sistolica, presion_diastolica, diabetes, fumador
+Modelo: Logistic Regression (scikit-learn)
+train_test_split: test_size=0.2, random_state=42, stratify=mortalidad
+
+1. Registros utilizados
+--------------------------------------------------------------------------------
+Total de registros: 5401
+Train: 4320
+Test: 1081
+
+Imputacion aplicada
+--------------------------------------------------------------------------------
+presion_sistolica: median = 124.0000
+presion_diastolica: median = 72.0000
+diabetes: mode = 0.0000
+
+Verificacion de nulos despues de imputar
+--------------------------------------------------------------------------------
+edad: 0
+sexo: 0
+imc: 0
+presion_sistolica: 0
+presion_diastolica: 0
+diabetes: 0
+fumador: 0
+mortalidad: 0
+
+2. Distribucion de mortalidad
+--------------------------------------------------------------------------------
+Dataset completo:
+  0: 5285 (97.85%)
+  1: 116 (2.15%)
+Train:
+  0: 4227 (97.85%)
+  1: 93 (2.15%)
+Test:
+  0: 1058 (97.87%)
+  1: 23 (2.13%)
+
+3-7. Metricas en test
+--------------------------------------------------------------------------------
+Accuracy: 0.9787
+Precision: 0.0000
+Recall: 0.0000
+F1-score: 0.0000
+ROC-AUC: 0.7512
+
+8. Matriz de confusion
+--------------------------------------------------------------------------------
+Filas = clase real; columnas = prediccion. Orden: 0 vivo, 1 fallecido.
+[[TN=1058, FP=0],
+ [FN=23, TP=0]]
+
+9. Coeficientes ordenados por importancia absoluta
+--------------------------------------------------------------------------------
+          variable coeficiente importancia_absoluta
+           fumador    0.506438             0.506438
+          diabetes    0.333009             0.333009
+              sexo   -0.137867             0.137867
+              edad    0.082882             0.082882
+               imc   -0.043163             0.043163
+ presion_sistolica   -0.001838             0.001838
+presion_diastolica    0.000447             0.000447
+
+Interpretacion de variables
+--------------------------------------------------------------------------------
+fumador: coeficiente 0.506438; en este baseline, valores mayores se asocian con que aumenta la probabilidad estimada de mortalidad.
+diabetes: coeficiente 0.333009; en este baseline, valores mayores se asocian con que aumenta la probabilidad estimada de mortalidad.
+sexo: coeficiente -0.137867; en este baseline, valores mayores se asocian con que disminuye la probabilidad estimada de mortalidad.
+edad: coeficiente 0.082882; en este baseline, valores mayores se asocian con que aumenta la probabilidad estimada de mortalidad.
+imc: coeficiente -0.043163; en este baseline, valores mayores se asocian con que disminuye la probabilidad estimada de mortalidad.
+presion_sistolica: coeficiente -0.001838; en este baseline, valores mayores se asocian con que disminuye la probabilidad estimada de mortalidad.
+presion_diastolica: coeficiente 0.000447; en este baseline, valores mayores se asocian con que aumenta la probabilidad estimada de mortalidad.
+
+Nota metodologica
+--------------------------------------------------------------------------------
+Los coeficientes no fueron estandarizados; por lo tanto, su magnitud absoluta depende de la escala de cada variable. Sirven como primera lectura baseline, pero para comparar importancia entre variables con mayor rigor conviene entrenar una version con escalado estandar dentro de un pipeline.
+
+Confirmacion
+--------------------------------------------------------------------------------
+No se uso Random Forest.
+No se uso XGBoost.
+No se usaron redes neuronales.
