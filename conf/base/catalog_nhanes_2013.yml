@@ -73,3 +73,17 @@ modelo_regresion_nhanes_2013:
   type: pickle.PickleDataset
   filepath: data/06_models/xgb_regresion_2013.pkl
   versioned: true
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CAPA 08 · REPORTING
+# Métricas de test (Accuracy/F1 y MAE/R²) persistidas a texto
+# ─────────────────────────────────────────────────────────────────────────────
+
+reporte_clasificacion_nhanes_2013:
+  type: text.TextDataset
+  filepath: data/08_reporting/reporte_clasificacion_2013.txt
+
+reporte_regresion_nhanes_2013:
+  type: text.TextDataset
+  filepath: data/08_reporting/reporte_regresion_2013.txt
