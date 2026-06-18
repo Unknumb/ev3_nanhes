@@ -1,0 +1,89 @@
+# ==============================================================================
+# conf/base/catalog.yml  ·  Pipeline nhanes_2013
+# Proyecto EV3 NHANES — Ciclo 2013-2014 (Letra H)
+# ==============================================================================
+#
+# Estructura de capas (Kedro Data Engineering Convention):
+#   01_raw          → Datos descargados tal como vienen de la CDC (tabla maestra fusionada)
+#   02_intermediate → Dataset único preprocesado (imputado, escalado, OHE, IS_LONGEVO)
+#   06_models       → Modelos XGBoost serializados (clasificación y regresión)
+#   08_reporting    → Métricas y reportes en JSON
+#
+# ¿Por qué esta estructura?
+#   Tu compañero Álvaro y tú comparten la misma lógica de pipeline:
+#     1. descargar_y_unir_2013()  → raw_nhanes_2013  (CSV)
+#     2. preprocesar_datos_2013() → preprocessed_nhanes_2013  (Parquet)
+#     3. entrenar_modelo_clasificacion() → modelo_clasificacion_nhanes_2013  (Pickle)
+#     4. entrenar_modelo_regresion()     → modelo_regresion_nhanes_2013  (Pickle)
+#
+#   La diferencia con tu catalog anterior:
+#   ✗ Eliminado: tablas separadas (demo_raw, bmx_raw, bpx_raw, etc.)
+#     → La descarga y fusión ocurre DENTRO del nodo Python (descargar_y_unir_2013),
+#       no como múltiples datasets de Kedro. Esto es consistente con el diseño
+#       de Álvaro y con tu nodes.py actual.
+#   ✗ Eliminado: nhanes_2013_merged, nhanes_2013_features, train/test, cox_model, metrics
+#     → Tu pipeline usa XGBoost (no Cox), no hace split explícito como dataset
+#       de Kedro, y las métricas se imprimen en consola / se guardan en el notebook.
+#   ✓ Añadido: versioned: true en los modelos (permite historial de versiones).
+#   ✓ Formato Parquet en intermediate (más eficiente que CSV para datos numéricos).
+# ==============================================================================
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CAPA 01 · RAW
+# Producida por: nodo_descarga_nhanes_2013  →  descargar_y_unir_2013()
+# Contiene: ciclo 2013-2014 completo + longevos históricos de 2015, 2009, 2007, 2005
+# ─────────────────────────────────────────────────────────────────────────────
+
+raw_nhanes_2013:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/nhanes_2013_maestra.csv
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CAPA 02 · INTERMEDIATE
+# Producida por: nodo_preprocesar_nhanes_2013  →  preprocesar_datos_2013()
+# Contiene: ~25 variables seleccionadas, imputadas (KNN + moda), OHE, escaladas
+#           + IS_LONGEVO (1 si RIDAGEYR ≥ 70) + RIDAGEYR sin escalar
+# ─────────────────────────────────────────────────────────────────────────────
+
+preprocessed_nhanes_2013:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/nhanes_2013_procesado.parquet
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CAPA 06 · MODELS
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Clasificación binaria: ¿Es el paciente longevo? (IS_LONGEVO = 1 si edad ≥ 70)
+# Producida por: nodo_entrenar_clasificacion_nhanes_2013  →  entrenar_modelo_clasificacion()
+# Algoritmo: XGBClassifier + RandomizedSearchCV + StratifiedKFold(5)
+# Métrica de optimización: F1-Score
+modelo_clasificacion_nhanes_2013:
+  type: pickle.PickleDataset
+  filepath: data/06_models/xgb_clasificacion_2013.pkl
+  versioned: true
+
+# Regresión continua: predicción de edad cronológica (proxy de Edad Biológica)
+# Producida por: nodo_entrenar_regresion_nhanes_2013  →  entrenar_modelo_regresion()
+# Algoritmo: XGBRegressor + RandomizedSearchCV + KFold(5)
+# Métrica de optimización: MAE (años)
+modelo_regresion_nhanes_2013:
+  type: pickle.PickleDataset
+  filepath: data/06_models/xgb_regresion_2013.pkl
+  versioned: true
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CAPA 08 · REPORTING
+# Métricas de test (Accuracy/F1 y MAE/R²) persistidas a texto
+# ─────────────────────────────────────────────────────────────────────────────
+
+reporte_clasificacion_nhanes_2013:
+  type: text.TextDataset
+  filepath: data/08_reporting/reporte_clasificacion_2013.txt
+
+reporte_regresion_nhanes_2013:
+  type: text.TextDataset
+  filepath: data/08_reporting/reporte_regresion_2013.txt
