@@ -2,21 +2,20 @@
 
 import pandas as pd
 import numpy as np
-from typing import Any
+from typing import Any, Tuple
 from sklearn.impute import KNNImputer, SimpleImputer
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, KFold
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold, KFold
 from xgboost import XGBClassifier, XGBRegressor
 
 # ──────────────────────────────────────────────────────────────────────
 # Constantes de Configuración
 # ──────────────────────────────────────────────────────────────────────
 _EDAD_LONGEVO = 70
+_RANDOM_STATE = 42
 
-# El ciclo principal que tu grupo analiza
 _CICLO_BASE = {"año": "2013", "letra": "H", "nombre": "2013-2014"}
 
-# Los 4 ciclos históricos para rescatar a la clase minoritaria (Longevos)
 _CICLOS_HISTORICOS = [
     {"año": "2011", "letra": "G", "nombre": "2011-2012"},
     {"año": "2009", "letra": "F", "nombre": "2009-2010"},
@@ -26,6 +25,10 @@ _CICLOS_HISTORICOS = [
 
 _TABLAS_CLAVE = ["DEMO", "BMX", "BPX", "TCHOL", "GLU", "MCQ", "SMQ"]
 
+
+# ──────────────────────────────────────────────────────────────────────
+# Funciones privadas de descarga
+# ──────────────────────────────────────────────────────────────────────
 
 def _generar_url(tabla: str, año: str, letra: str) -> str:
     """Genera la URL pública de la CDC basada en la tabla, el año y la letra."""
@@ -49,7 +52,6 @@ def _descargar_ciclo(config_ciclo: dict, solo_longevos: bool = False) -> pd.Data
 
     print(f"\n--- Descargando Ciclo {nombre} ---")
 
-    # 1. Bajar tabla maestra (DEMO)
     url_demo = _generar_url("DEMO", año, letra)
     try:
         df_maestra = pd.read_sas(url_demo)
@@ -59,7 +61,6 @@ def _descargar_ciclo(config_ciclo: dict, solo_longevos: bool = False) -> pd.Data
 
     df_maestra = _limpiar_missing_sas(df_maestra)
 
-    # 2. Aplicar filtro temprano si es un ciclo histórico (Ahorra muchísima RAM)
     if solo_longevos:
         if 'RIDAGEYR' in df_maestra.columns:
             df_maestra = df_maestra[df_maestra['RIDAGEYR'] >= _EDAD_LONGEVO].copy()
@@ -67,27 +68,26 @@ def _descargar_ciclo(config_ciclo: dict, solo_longevos: bool = False) -> pd.Data
         else:
             return pd.DataFrame()
 
-    # 3. Descargar el resto de las tablas y unirlas
     for tabla in _TABLAS_CLAVE:
         if tabla == "DEMO":
             continue
-
         url = _generar_url(tabla, año, letra)
         try:
             df_temp = pd.read_sas(url)
             df_temp = _limpiar_missing_sas(df_temp)
-
-            # Si estamos rescatando longevos, usamos LEFT join.
             tipo_join = 'left' if solo_longevos else 'outer'
             df_maestra = pd.merge(df_maestra, df_temp, on='SEQN', how=tipo_join)
             print(f"  ✓ {tabla}_{letra} integrada.")
         except Exception as e:
             print(f"  x No se encontró {tabla}_{letra}: {e}")
 
-    # Dejamos una huella del ciclo de origen
     df_maestra['CICLO_ORIGEN'] = nombre
     return df_maestra
 
+
+# ──────────────────────────────────────────────────────────────────────
+# Nodo 1 – Extracción
+# ──────────────────────────────────────────────────────────────────────
 
 def descargar_y_unir_2013() -> pd.DataFrame:
     """
@@ -96,54 +96,56 @@ def descargar_y_unir_2013() -> pd.DataFrame:
     """
     print("Iniciando Pipeline de Extracción con Data Augmentation Histórico...")
 
-    # 1. Descargar ciclo base (Todos los pacientes)
     df_final = _descargar_ciclo(_CICLO_BASE, solo_longevos=False)
 
-    # 2. Descargar e inyectar ciclos históricos (Solo longevos)
     for ciclo in _CICLOS_HISTORICOS:
         df_historico = _descargar_ciclo(ciclo, solo_longevos=True)
         if not df_historico.empty:
             df_final = pd.concat([df_final, df_historico], ignore_index=True)
 
-    print(f"\n¡Extracción Completada con Éxito! Dataset robustecido: {len(df_final)} pacientes totales.")
+    print(f"\n¡Extracción Completada! Dataset robustecido: {len(df_final)} pacientes totales.")
     return df_final
 
 
-def preprocesar_datos_2013(df: pd.DataFrame) -> pd.DataFrame:
-    """Limpia, imputa y crea variable objetivo IS_LONGEVO."""
-    print("Iniciando preprocesamiento de datos...")
+# ──────────────────────────────────────────────────────────────────────
+# Nodo 2 – Preprocesamiento SIN escalado (limpieza + imputación + OHE)
+# ──────────────────────────────────────────────────────────────────────
 
-    # 1. Limpieza inicial: eliminar nulos en la edad y menores de 18 años
+def preprocesar_datos_2013(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Limpia, imputa y codifica. NO escala.
+    El escalado se realiza DESPUÉS del train_test_split para evitar data leakage.
+    """
+    print("Iniciando preprocesamiento (sin escalado)...")
+
+    # 1. Limpieza inicial
     df = df.dropna(subset=['RIDAGEYR'])
     df = df[df['RIDAGEYR'] >= 18].copy()
 
-    # 2. Crear variable objetivo (IS_LONGEVO)
+    # 2. Crear variable objetivo
     df['IS_LONGEVO'] = (df['RIDAGEYR'] >= _EDAD_LONGEVO).astype(int)
 
-    # 3. Identificar y filtrar variables deseadas
-    cols_id = ['SEQN']
-    cols_demo = ['RIDAGEYR', 'RIAGENDR', 'RIDRETH3', 'DMDEDUC2', 'DMDMARTL', 'DMDHHSIZ', 'DMDFMSIZ', 'INDFMPIR']
-    cols_bmx = ['BMXWT', 'BMXHT', 'BMXBMI', 'BMXWAIST', 'BMXLEG', 'BMXARML', 'BMXARMC']
-    cols_bp = ['BPXSY1', 'BPXDI1', 'BPXSY2', 'BPXDI2', 'BPXSY3', 'BPXDI3', 'BPXPLS']
-    cols_lab = ['LBXTC', 'LBXGLU']
+    # 3. Seleccionar columnas
+    cols_id     = ['SEQN']
+    cols_demo   = ['RIDAGEYR', 'RIAGENDR', 'RIDRETH3', 'DMDEDUC2', 'DMDMARTL',
+                   'DMDHHSIZ', 'DMDFMSIZ', 'INDFMPIR']
+    cols_bmx    = ['BMXWT', 'BMXHT', 'BMXBMI', 'BMXWAIST', 'BMXLEG', 'BMXARML', 'BMXARMC']
+    cols_bp     = ['BPXSY1', 'BPXDI1', 'BPXSY2', 'BPXDI2', 'BPXSY3', 'BPXDI3', 'BPXPLS']
+    cols_lab    = ['LBXTC', 'LBXGLU']
 
     cols_deseadas = cols_id + cols_demo + cols_bmx + cols_bp + cols_lab + ['IS_LONGEVO', 'CICLO_ORIGEN']
     cols_seleccion = [c for c in cols_deseadas if c in df.columns]
-
     df = df[cols_seleccion].copy()
 
-    cols_categoricas = ['RIAGENDR', 'RIDRETH3', 'DMDEDUC2', 'DMDMARTL']
-    cols_categoricas = [c for c in cols_categoricas if c in df.columns]
-
-    cols_numericas = [
+    cols_categoricas = [c for c in ['RIAGENDR', 'RIDRETH3', 'DMDEDUC2', 'DMDMARTL'] if c in df.columns]
+    cols_numericas = [c for c in [
         'DMDHHSIZ', 'DMDFMSIZ', 'INDFMPIR',
         'BMXWT', 'BMXHT', 'BMXBMI', 'BMXWAIST', 'BMXLEG', 'BMXARML', 'BMXARMC',
         'BPXSY1', 'BPXDI1', 'BPXSY2', 'BPXDI2', 'BPXSY3', 'BPXDI3', 'BPXPLS',
         'LBXTC', 'LBXGLU',
-    ]
-    cols_numericas = [c for c in cols_numericas if c in df.columns]
+    ] if c in df.columns]
 
-    # 4. Imputación de nulos
+    # 4. Imputación
     knn_imputer = KNNImputer(n_neighbors=5, weights='uniform')
     df[cols_numericas] = knn_imputer.fit_transform(df[cols_numericas])
 
@@ -155,91 +157,141 @@ def preprocesar_datos_2013(df: pd.DataFrame) -> pd.DataFrame:
         df[col] = df[col].astype(int).astype(str)
     df_encoded = pd.get_dummies(df, columns=cols_categoricas, drop_first=True, dtype=int)
 
-    # 6. Escalado
-    cols_a_escalar = [c for c in cols_numericas if c in df_encoded.columns]
-    scaler = StandardScaler()
-    df_encoded[cols_a_escalar] = scaler.fit_transform(df_encoded[cols_a_escalar])
-
-    print(f"Preprocesamiento terminado. Dataset resultante: {df_encoded.shape}")
+    # ⚠️  NO se escala aquí — el escalado ocurre en split_y_escalar()
+    print(f"Preprocesamiento terminado. Shape: {df_encoded.shape}")
     return df_encoded
 
 
-def entrenar_modelo_clasificacion(df: pd.DataFrame) -> Any:
-    """Entrena modelo XGBoost de clasificación para IS_LONGEVO."""
-    print("Entrenando modelo de clasificación XGBoost...")
+# ──────────────────────────────────────────────────────────────────────
+# Nodo 3 – Split + Escalado CORRECTO (sin data leakage)
+# ──────────────────────────────────────────────────────────────────────
+
+def split_y_escalar(
+    df: pd.DataFrame,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+    """
+    Orden correcto para evitar data leakage:
+      1. train_test_split  — separa primero
+      2. fit_transform()   — SOLO sobre X_train (el scaler aprende únicamente del train)
+      3. transform()       — SOLO sobre X_test  (aplica los parámetros aprendidos del train)
+
+    Devuelve: X_train_scaled, X_test_scaled, y_train, y_test
+    """
+    print("Dividiendo en Train/Test y escalando correctamente...")
 
     cols_excluir = ['SEQN', 'RIDAGEYR', 'IS_LONGEVO', 'CICLO_ORIGEN']
     feature_cols = [c for c in df.columns if c not in cols_excluir]
 
-    X = df[feature_cols]
+    cols_a_escalar = [c for c in [
+        'DMDHHSIZ', 'DMDFMSIZ', 'INDFMPIR',
+        'BMXWT', 'BMXHT', 'BMXBMI', 'BMXWAIST', 'BMXLEG', 'BMXARML', 'BMXARMC',
+        'BPXSY1', 'BPXDI1', 'BPXSY2', 'BPXDI2', 'BPXSY3', 'BPXDI3', 'BPXPLS',
+        'LBXTC', 'LBXGLU',
+    ] if c in feature_cols]
+
+    X = df[feature_cols].copy()
     y = df['IS_LONGEVO']
 
-    # Calcular scale_pos_weight para compensar el desbalance
-    n_neg = (y == 0).sum()
-    n_pos = (y == 1).sum()
+    # ── PASO 1: PRIMERO el split ─────────────────────────────────────
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y,
+        test_size=0.2,
+        random_state=_RANDOM_STATE,
+        stratify=y,
+    )
+
+    # ── PASO 2: DESPUÉS el escalado (fit SOLO en train) ──────────────
+    scaler = StandardScaler()
+    X_train[cols_a_escalar] = scaler.fit_transform(X_train[cols_a_escalar])  # aprende media/std de train
+    X_test[cols_a_escalar]  = scaler.transform(X_test[cols_a_escalar])       # aplica esa media/std al test
+
+    print(f"  Train: {X_train.shape}  |  Test: {X_test.shape}")
+    print(f"  Proporción IS_LONGEVO en train: {y_train.mean():.2%}")
+    print(f"  Proporción IS_LONGEVO en test:  {y_test.mean():.2%}")
+    return X_train, X_test, y_train, y_test
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Nodo 4a – Entrenamiento Clasificación
+# ──────────────────────────────────────────────────────────────────────
+
+def entrenar_modelo_clasificacion(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+) -> Any:
+    """Entrena modelo XGBoost de clasificación para IS_LONGEVO."""
+    print("Entrenando modelo de clasificación XGBoost...")
+
+    n_neg = (y_train == 0).sum()
+    n_pos = (y_train == 1).sum()
     scale_pw = n_neg / n_pos if n_pos > 0 else 1.0
 
     xgb_param_dist = {
-        'n_estimators': [100, 200, 300, 500],
-        'max_depth': [3, 5, 7, 10],
-        'learning_rate': [0.01, 0.05, 0.1, 0.2],
-        'subsample': [0.7, 0.8, 0.9, 1.0],
-        'colsample_bytree': [0.7, 0.8, 0.9, 1.0],
-        'min_child_weight': [1, 3, 5],
+        'n_estimators':      [100, 200, 300, 500],
+        'max_depth':         [3, 5, 7, 10],
+        'learning_rate':     [0.01, 0.05, 0.1, 0.2],
+        'subsample':         [0.7, 0.8, 0.9, 1.0],
+        'colsample_bytree':  [0.7, 0.8, 0.9, 1.0],
+        'min_child_weight':  [1, 3, 5],
     }
 
     xgb_search = RandomizedSearchCV(
         XGBClassifier(
             scale_pos_weight=scale_pw,
-            random_state=42,
+            random_state=_RANDOM_STATE,
             eval_metric='logloss',
         ),
         param_distributions=xgb_param_dist,
         n_iter=30,
         scoring='f1',
-        cv=StratifiedKFold(5, shuffle=True, random_state=42),
-        random_state=42,
+        cv=StratifiedKFold(5, shuffle=True, random_state=_RANDOM_STATE),
+        random_state=_RANDOM_STATE,
         n_jobs=-1,
     )
-    xgb_search.fit(X, y)
+    xgb_search.fit(X_train, y_train)
 
     print(f"Clasificación - Mejores hiperparámetros: {xgb_search.best_params_}")
     print(f"Clasificación - Mejor F1 (CV): {xgb_search.best_score_:.4f}")
-
     return xgb_search.best_estimator_
 
 
-def entrenar_modelo_regresion(df: pd.DataFrame) -> Any:
-    """Entrena modelo XGBoost de regresión para RIDAGEYR."""
+# ──────────────────────────────────────────────────────────────────────
+# Nodo 4b – Entrenamiento Regresión
+# ──────────────────────────────────────────────────────────────────────
+
+def entrenar_modelo_regresion(
+    df: pd.DataFrame,
+    X_train: pd.DataFrame,
+) -> Any:
+    """
+    Entrena modelo XGBoost de regresión para RIDAGEYR (edad cronológica).
+    Recupera y_train de regresión usando los índices de X_train sobre el df original.
+    """
     print("Entrenando modelo de regresión XGBoost...")
 
-    cols_excluir = ['SEQN', 'RIDAGEYR', 'IS_LONGEVO', 'CICLO_ORIGEN']
-    feature_cols = [c for c in df.columns if c not in cols_excluir]
-
-    X = df[feature_cols]
-    y = df['RIDAGEYR']
+    # Reconstruimos el target de regresión alineado con los índices de X_train
+    y_train_reg = df.loc[X_train.index, 'RIDAGEYR']
 
     xgb_param_dist = {
-        'n_estimators': [100, 200, 300, 500],
-        'max_depth': [3, 5, 7, 10],
-        'learning_rate': [0.01, 0.05, 0.1, 0.2],
-        'subsample': [0.7, 0.8, 0.9, 1.0],
-        'colsample_bytree': [0.7, 0.8, 0.9, 1.0],
-        'min_child_weight': [1, 3, 5],
+        'n_estimators':      [100, 200, 300, 500],
+        'max_depth':         [3, 5, 7, 10],
+        'learning_rate':     [0.01, 0.05, 0.1, 0.2],
+        'subsample':         [0.7, 0.8, 0.9, 1.0],
+        'colsample_bytree':  [0.7, 0.8, 0.9, 1.0],
+        'min_child_weight':  [1, 3, 5],
     }
 
     xgb_search = RandomizedSearchCV(
-        XGBRegressor(random_state=42, eval_metric='rmse'),
+        XGBRegressor(random_state=_RANDOM_STATE, eval_metric='rmse'),
         param_distributions=xgb_param_dist,
         n_iter=30,
         scoring='neg_mean_absolute_error',
-        cv=KFold(5, shuffle=True, random_state=42),
-        random_state=42,
+        cv=KFold(5, shuffle=True, random_state=_RANDOM_STATE),
+        random_state=_RANDOM_STATE,
         n_jobs=-1,
     )
-    xgb_search.fit(X, y)
+    xgb_search.fit(X_train, y_train_reg)
 
     print(f"Regresión - Mejores hiperparámetros: {xgb_search.best_params_}")
     print(f"Regresión - Mejor MAE (CV): {-xgb_search.best_score_:.2f} años")
-
     return xgb_search.best_estimator_
