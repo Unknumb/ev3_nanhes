@@ -2,3 +2,8 @@ ipython>=8.10
 jupyterlab>=3.0
 notebook
 kedro~=1.4.0
+kedro-datasets[pandas,text]>=8.0
+pandas>=2.0
+pyreadstat>=1.2
+requests>=2.31
+scikit-learn>=1.3

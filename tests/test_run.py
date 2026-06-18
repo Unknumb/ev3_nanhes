@@ -1,25 +1,18 @@
-"""
-This module contains example tests for a Kedro project.
-Tests should be placed in ``src/tests``, in modules that mirror your
-project's structure, and in files named test_*.py.
-"""
-import pytest
+"""Smoke tests for Kedro pipeline registration."""
+
 from pathlib import Path
-from kedro.framework.session import KedroSession
+
+from kedro.framework.project import pipelines
 from kedro.framework.startup import bootstrap_project
 
-# The tests below are here for the demonstration purpose
-# and should be replaced with the ones testing the project
-# functionality
 
-class TestKedroRun:
-    def test_kedro_run_no_pipeline(self):
-    # This example test expects a pipeline run failure, since
-    # the default project template contains no pipelines.
+class TestKedroPipelineRegistration:
+    def test_default_pipeline_has_nodes(self):
         bootstrap_project(Path.cwd())
 
-        with pytest.raises(Exception) as excinfo:
-            with KedroSession.create(project_path=Path.cwd()) as session:
-                session.run()
+        default_pipeline = pipelines["__default__"]
 
-        assert "Pipeline contains no nodes" in str(excinfo.value)
+        assert len(default_pipeline.nodes) > 0
+        assert "merge_nhanes_2017_2018" in {
+            node.name for node in default_pipeline.nodes
+        }

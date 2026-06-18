@@ -29,3 +29,31 @@ smq_data:
 mortality_data:
   type: ev3_nhanes.loaders.MortalityDataset
   filepath: https://ftp.cdc.gov/pub/Health_Statistics/NCHS/datalinkage/linked_mortality/NHANES_2017_2018_MORT_2019_PUBLIC.dat
+
+nhanes_2017_2018_merged:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/02_intermediate/nhanes_2017_2018_merged.csv
+  save_args:
+    index: false
+
+nhanes_2017_2018_model_baseline:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/05_model_input/nhanes_2017_2018_model_baseline.csv
+  save_args:
+    index: false
+
+nhanes_2017_2018_feature_expanded:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/05_model_input/nhanes_2017_2018_feature_expanded.csv
+  save_args:
+    index: false
+
+nhanes_2017_2018_model_input:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/05_model_input/nhanes_2017_2018_model_feature_expanded.csv
+  save_args:
+    index: false
+
+feature_expanded_logistic_report:
+  type: kedro_datasets.text.TextDataset
+  filepath: feature_expanded_logistic_report.txt

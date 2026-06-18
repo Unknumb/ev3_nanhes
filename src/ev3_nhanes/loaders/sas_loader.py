@@ -59,6 +59,10 @@ class SASDataset(AbstractDataset):
         """Return None as versioning is not supported."""
         return None
 
+    def _describe(self) -> dict[str, Any]:
+        """Describe the dataset configuration."""
+        return {"filepath": self.filepath}
+
 
 class MortalityDataset(AbstractDataset):
     """
