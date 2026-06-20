@@ -1,9 +1,10 @@
-"""Nodes for the NHANES 2017-2018 mortality pipeline."""
+"""Nodes for the NHANES 2017-2018 longevity pipeline."""
 
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from typing import Any
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
@@ -11,13 +12,22 @@ from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
     f1_score,
+    mean_absolute_error,
+    mean_squared_error,
     precision_score,
+    r2_score,
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import (
+    KFold,
+    RandomizedSearchCV,
+    StratifiedKFold,
+    train_test_split,
+)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from xgboost import XGBClassifier, XGBRegressor
 
 
 BASE_COLUMNS = {
@@ -43,74 +53,45 @@ FEATURE_COLUMNS = {
     "smq": ["SEQN", "SMQ040"],
 }
 
-BASELINE_RENAME = {
-    "RIDAGEYR": "edad",
-    "RIAGENDR": "sexo",
-    "BMXBMI": "imc",
-    "BPXSY1": "presion_sistolica",
-    "BPXDI1": "presion_diastolica",
-    "DIQ010": "diabetes",
-    "SMQ020": "fumador",
-    "MORTSTAT": "mortalidad",
-    "FUTIME": "tiempo_supervivencia",
-}
-
-FEATURE_RENAME = {
-    "RIDAGEYR": "edad",
-    "RIAGENDR": "sexo",
-    "BMXBMI": "imc",
-    "DIQ010": "diabetes",
-    "SMQ020": "fumador",
-    "MORTSTAT": "mortalidad",
-    "FUTIME": "tiempo_supervivencia",
-    "RIDRETH3": "raza_etnia",
-    "INDFMPIR": "indice_pobreza_ingreso",
-    "BMXWAIST": "circunferencia_cintura",
-    "BPXPLS": "pulso",
-    "SMQ040": "estado_tabaquismo_actual",
-}
-
-FEATURE_MODEL_COLUMNS = [
-    "edad",
-    "sexo",
-    "imc",
-    "diabetes",
-    "fumador",
-    "mortalidad",
-    "raza_etnia",
-    "indice_pobreza_ingreso",
-    "circunferencia_cintura",
-    "pulso",
-    "presion_sistolica_promedio",
-    "presion_diastolica_promedio",
+MODEL_INPUT_COLUMNS = [
+    "SEQN",
+    "RIDAGEYR",
+    "RIAGENDR",
+    "BMXBMI",
+    "DIQ010",
+    "SMQ020",
+    "RIDRETH3",
+    "INDFMPIR",
+    "BMXWAIST",
+    "BPXPLS",
+    "BPXSY_AVG",
+    "BPXDI_AVG",
+    "IS_LONGEVO",
 ]
 
 PREDICTORS = [
-    "edad",
-    "sexo",
-    "imc",
-    "diabetes",
-    "fumador",
-    "raza_etnia",
-    "indice_pobreza_ingreso",
-    "circunferencia_cintura",
-    "pulso",
-    "presion_sistolica_promedio",
-    "presion_diastolica_promedio",
+    "RIAGENDR",
+    "BMXBMI",
+    "DIQ010",
+    "SMQ020",
+    "RIDRETH3",
+    "INDFMPIR",
+    "BMXWAIST",
+    "BPXPLS",
+    "BPXSY_AVG",
+    "BPXDI_AVG",
 ]
 
 CONTINUOUS_FEATURES = [
-    "edad",
-    "imc",
-    "indice_pobreza_ingreso",
-    "circunferencia_cintura",
-    "pulso",
-    "presion_sistolica_promedio",
-    "presion_diastolica_promedio",
+    "BMXBMI",
+    "INDFMPIR",
+    "BMXWAIST",
+    "BPXPLS",
+    "BPXSY_AVG",
+    "BPXDI_AVG",
 ]
 
-BINARY_CATEGORICAL_FEATURES = ["sexo", "diabetes", "fumador"]
-ONE_HOT_FEATURES = ["raza_etnia"]
+CATEGORICAL_FEATURES = ["RIAGENDR", "DIQ010", "SMQ020", "RIDRETH3"]
 
 
 def _check_columns(df: pd.DataFrame, columns: list[str], dataset_name: str) -> None:
@@ -119,35 +100,68 @@ def _check_columns(df: pd.DataFrame, columns: list[str], dataset_name: str) -> N
         raise ValueError(f"{dataset_name} is missing expected columns: {missing}")
 
 
-def _recode_common_columns(df: pd.DataFrame) -> pd.DataFrame:
-    output = df.copy()
-    output["sexo"] = output["sexo"].map({1: 0, 2: 1, 0: 0}).astype(float)
-    output["diabetes"] = (
-        output["diabetes"]
-        .map({1: 1, 2: 0, 3: 1, 7: np.nan, 9: np.nan, 0: 0})
-        .astype(float)
+def _make_one_hot_encoder() -> OneHotEncoder:
+    try:
+        return OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+    except TypeError:
+        return OneHotEncoder(handle_unknown="ignore", sparse=False)
+
+
+def _format_confusion_matrix(matrix: np.ndarray) -> str:
+    return (
+        f"[[TN={matrix[0, 0]}, FP={matrix[0, 1]}],\n"
+        f" [FN={matrix[1, 0]}, TP={matrix[1, 1]}]]"
     )
-    output["fumador"] = output["fumador"].map({1: 1, 2: 0, 0: 0}).astype(float)
-    output["mortalidad"] = output["mortalidad"].map({0: 0, 1: 1}).astype(float)
-    return output
 
 
-def merge_nhanes_data(
-    demo_data: pd.DataFrame,
-    bmx_data: pd.DataFrame,
-    bpx_data: pd.DataFrame,
-    diq_data: pd.DataFrame,
-    smq_data: pd.DataFrame,
-    mortality_data: pd.DataFrame,
+def _build_preprocessor() -> ColumnTransformer:
+    return ColumnTransformer(
+        transformers=[
+            (
+                "continuous",
+                Pipeline(
+                    [
+                        ("imputer", SimpleImputer(strategy="median")),
+                        ("scaler", StandardScaler()),
+                    ]
+                ),
+                CONTINUOUS_FEATURES,
+            ),
+            (
+                "categorical",
+                Pipeline(
+                    [
+                        ("imputer", SimpleImputer(strategy="most_frequent")),
+                        ("onehot", _make_one_hot_encoder()),
+                    ]
+                ),
+                CATEGORICAL_FEATURES,
+            ),
+        ],
+        remainder="drop",
+    )
+
+
+def _format_params(params: dict[str, Any]) -> str:
+    return "\n".join(f"- {key}: {value}" for key, value in sorted(params.items()))
+
+
+def merge_nhanes_2017_data(
+    raw_nhanes_2017_demo: pd.DataFrame,
+    raw_nhanes_2017_bmx: pd.DataFrame,
+    raw_nhanes_2017_bpx: pd.DataFrame,
+    raw_nhanes_2017_diq: pd.DataFrame,
+    raw_nhanes_2017_smq: pd.DataFrame,
+    raw_nhanes_2017_mortality: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Merge selected NHANES modules by SEQN."""
+    """Merge selected NHANES 2017-2018 modules by SEQN."""
     datasets = {
-        "demo": demo_data,
-        "bmx": bmx_data,
-        "bpx": bpx_data,
-        "diq": diq_data,
-        "smq": smq_data,
-        "mortality": mortality_data,
+        "demo": raw_nhanes_2017_demo,
+        "bmx": raw_nhanes_2017_bmx,
+        "bpx": raw_nhanes_2017_bpx,
+        "diq": raw_nhanes_2017_diq,
+        "smq": raw_nhanes_2017_smq,
+        "mortality": raw_nhanes_2017_mortality,
     }
 
     selected = {}
@@ -173,91 +187,77 @@ def merge_nhanes_data(
     return merged
 
 
-def build_baseline_model_input(merged_data: pd.DataFrame) -> pd.DataFrame:
-    """Build the original baseline model input used for comparison."""
-    baseline = merged_data.copy().rename(columns=BASELINE_RENAME)
-    baseline = _recode_common_columns(baseline)
-    return baseline.dropna(subset=["mortalidad", "fumador", "imc"]).copy()
-
-
-def build_feature_expanded_dataset(
-    merged_data: pd.DataFrame,
-    demo_data: pd.DataFrame,
-    bmx_data: pd.DataFrame,
-    bpx_data: pd.DataFrame,
-    smq_data: pd.DataFrame,
+def build_nhanes_2017_feature_expanded(
+    nhanes_2017_merged: pd.DataFrame,
+    raw_nhanes_2017_demo: pd.DataFrame,
+    raw_nhanes_2017_bmx: pd.DataFrame,
+    raw_nhanes_2017_bpx: pd.DataFrame,
+    raw_nhanes_2017_smq: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Add feature-expanded variables and derived average blood pressure."""
+    """Add feature-expanded variables and derived BP averages."""
     feature_sources = {
-        "demo": demo_data,
-        "bmx": bmx_data,
-        "bpx": bpx_data,
-        "smq": smq_data,
+        "demo": raw_nhanes_2017_demo,
+        "bmx": raw_nhanes_2017_bmx,
+        "bpx": raw_nhanes_2017_bpx,
+        "smq": raw_nhanes_2017_smq,
     }
 
-    expanded = merged_data.copy()
+    expanded = nhanes_2017_merged.copy()
     for name, df in feature_sources.items():
         columns = FEATURE_COLUMNS[name]
         _check_columns(df, columns, name)
         expanded = expanded.merge(df[columns].copy(), on="SEQN", how="left")
 
-    expanded["presion_sistolica_promedio"] = expanded[
-        ["BPXSY1", "BPXSY2", "BPXSY3"]
-    ].mean(axis=1, skipna=True)
-    expanded["presion_diastolica_promedio"] = expanded[
-        ["BPXDI1", "BPXDI2", "BPXDI3"]
-    ].mean(axis=1, skipna=True)
-
-    expanded = expanded.rename(columns=FEATURE_RENAME)
+    expanded["BPXSY_AVG"] = expanded[["BPXSY1", "BPXSY2", "BPXSY3"]].mean(
+        axis=1,
+        skipna=True,
+    )
+    expanded["BPXDI_AVG"] = expanded[["BPXDI1", "BPXDI2", "BPXDI3"]].mean(
+        axis=1,
+        skipna=True,
+    )
 
     return expanded[
         [
             "SEQN",
-            "edad",
-            "sexo",
-            "imc",
-            "diabetes",
-            "fumador",
-            "mortalidad",
-            "tiempo_supervivencia",
-            "raza_etnia",
-            "indice_pobreza_ingreso",
-            "circunferencia_cintura",
-            "pulso",
-            "estado_tabaquismo_actual",
-            "presion_sistolica_promedio",
-            "presion_diastolica_promedio",
+            "RIDAGEYR",
+            "RIAGENDR",
+            "BMXBMI",
+            "BPXSY1",
+            "BPXDI1",
+            "DIQ010",
+            "SMQ020",
+            "MORTSTAT",
+            "FUTIME",
+            "RIDRETH3",
+            "INDFMPIR",
+            "BMXWAIST",
+            "BPXPLS",
+            "SMQ040",
+            "BPXSY_AVG",
+            "BPXDI_AVG",
         ]
     ].copy()
 
 
-def prepare_feature_expanded_model_input(
-    feature_expanded_data: pd.DataFrame,
+def prepare_nhanes_2017_model_input(
+    nhanes_2017_feature_expanded: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Clean and code the feature-expanded data for model training."""
-    model_input = feature_expanded_data[FEATURE_MODEL_COLUMNS].copy()
-    model_input = _recode_common_columns(model_input)
-    return model_input.dropna(subset=["mortalidad"]).copy()
+    """Create IS_LONGEVO and prepare model input using original NHANES names."""
+    model_input = nhanes_2017_feature_expanded.copy()
+    model_input = model_input.dropna(subset=["RIDAGEYR"]).copy()
+    model_input["IS_LONGEVO"] = (model_input["RIDAGEYR"] >= 70).astype(int)
+
+    model_input["DIQ010"] = model_input["DIQ010"].replace({7: np.nan, 9: np.nan})
+    model_input["SMQ020"] = model_input["SMQ020"].replace({7: np.nan, 9: np.nan})
+
+    return model_input[MODEL_INPUT_COLUMNS].copy()
 
 
-def _make_one_hot_encoder() -> OneHotEncoder:
-    try:
-        return OneHotEncoder(handle_unknown="ignore", sparse_output=False)
-    except TypeError:
-        return OneHotEncoder(handle_unknown="ignore", sparse=False)
-
-
-def _format_confusion_matrix(matrix: np.ndarray) -> str:
-    return (
-        f"[[TN={matrix[0, 0]}, FP={matrix[0, 1]}],\n"
-        f" [FN={matrix[1, 0]}, TP={matrix[1, 1]}]]"
-    )
-
-
-def train_feature_expanded_logistic_model(model_input: pd.DataFrame) -> str:
-    """Train the current best Logistic Regression model and return a report."""
-    x = model_input[PREDICTORS]
-    y = model_input["mortalidad"].astype(int)
+def train_nhanes_2017_logistic_model(nhanes_2017_model_input: pd.DataFrame) -> str:
+    """Train the NHANES 2017 longevity Logistic Regression model."""
+    x = nhanes_2017_model_input[PREDICTORS]
+    y = nhanes_2017_model_input["IS_LONGEVO"].astype(int)
 
     x_train, x_test, y_train, y_test = train_test_split(
         x,
@@ -267,40 +267,9 @@ def train_feature_expanded_logistic_model(model_input: pd.DataFrame) -> str:
         stratify=y,
     )
 
-    preprocessor = ColumnTransformer(
-        transformers=[
-            (
-                "continuous",
-                Pipeline(
-                    [
-                        ("imputer", SimpleImputer(strategy="median")),
-                        ("scaler", StandardScaler()),
-                    ]
-                ),
-                CONTINUOUS_FEATURES,
-            ),
-            (
-                "binary_categorical",
-                SimpleImputer(strategy="most_frequent"),
-                BINARY_CATEGORICAL_FEATURES,
-            ),
-            (
-                "race",
-                Pipeline(
-                    [
-                        ("imputer", SimpleImputer(strategy="most_frequent")),
-                        ("onehot", _make_one_hot_encoder()),
-                    ]
-                ),
-                ONE_HOT_FEATURES,
-            ),
-        ],
-        remainder="drop",
-    )
-
     model = Pipeline(
         [
-            ("preprocessor", preprocessor),
+            ("preprocessor", _build_preprocessor()),
             (
                 "model",
                 LogisticRegression(
@@ -323,18 +292,33 @@ def train_feature_expanded_logistic_model(model_input: pd.DataFrame) -> str:
     roc_auc = roc_auc_score(y_test, y_proba)
     matrix = confusion_matrix(y_test, y_pred, labels=[0, 1])
 
+    translated_columns = {
+        "edad",
+        "sexo",
+        "imc",
+        "diabetes",
+        "fumador",
+        "mortalidad",
+        "tiempo_supervivencia",
+    }
+    leaked_translated = sorted(
+        translated_columns.intersection(nhanes_2017_model_input.columns)
+    )
+
     return "\n".join(
         [
-            "FEATURE-EXPANDED LOGISTIC REGRESSION REPORT",
+            "NHANES 2017-2018 LONGEVITY LOGISTIC REGRESSION REPORT",
             "=" * 80,
+            "Target: IS_LONGEVO = 1 if RIDAGEYR >= 70, else 0",
+            "MORTSTAT is not used as target or predictor.",
             "Model: LogisticRegression(class_weight='balanced')",
-            "Split: test_size=0.2, random_state=42, stratify=mortalidad",
+            "Split: test_size=0.2, random_state=42, stratify=IS_LONGEVO",
             "",
-            f"Rows used: {len(model_input)}",
+            f"Rows used: {len(nhanes_2017_model_input)}",
             f"Train rows: {len(x_train)}",
             f"Test rows: {len(x_test)}",
-            f"Train mortality distribution: 0={(y_train == 0).sum()}, 1={(y_train == 1).sum()}",
-            f"Test mortality distribution: 0={(y_test == 0).sum()}, 1={(y_test == 1).sum()}",
+            f"Train IS_LONGEVO distribution: 0={(y_train == 0).sum()}, 1={(y_train == 1).sum()}",
+            f"Test IS_LONGEVO distribution: 0={(y_test == 0).sum()}, 1={(y_test == 1).sum()}",
             "",
             f"Accuracy: {accuracy:.4f}",
             f"Precision: {precision:.4f}",
@@ -347,5 +331,201 @@ def train_feature_expanded_logistic_model(model_input: pd.DataFrame) -> str:
             "",
             "Predictors:",
             ", ".join(PREDICTORS),
+            "",
+            "Validation:",
+            "Target column: IS_LONGEVO",
+            "MORTSTAT used as target: no",
+            f"Translated columns in model input: {leaked_translated}",
+            "Reports location: data/08_reporting",
         ]
     )
+
+
+def train_nhanes_2017_xgb_classifier(
+    nhanes_2017_model_input: pd.DataFrame,
+) -> tuple[Pipeline, str]:
+    """Train an XGBClassifier for the NHANES 2017 longevity target."""
+    x = nhanes_2017_model_input[PREDICTORS]
+    y = nhanes_2017_model_input["IS_LONGEVO"].astype(int)
+
+    x_train, x_test, y_train, y_test = train_test_split(
+        x,
+        y,
+        test_size=0.2,
+        random_state=42,
+        stratify=y,
+    )
+
+    n_negative = int((y_train == 0).sum())
+    n_positive = int((y_train == 1).sum())
+    scale_pos_weight = n_negative / n_positive
+
+    model = Pipeline(
+        [
+            ("preprocessor", _build_preprocessor()),
+            (
+                "model",
+                XGBClassifier(
+                    objective="binary:logistic",
+                    eval_metric="logloss",
+                    random_state=42,
+                    scale_pos_weight=scale_pos_weight,
+                    tree_method="hist",
+                    n_jobs=1,
+                ),
+            ),
+        ]
+    )
+
+    search = RandomizedSearchCV(
+        estimator=model,
+        param_distributions={
+            "model__n_estimators": [100, 200, 300],
+            "model__max_depth": [3, 4, 5],
+            "model__learning_rate": [0.01, 0.05, 0.1],
+            "model__subsample": [0.8, 0.9, 1.0],
+            "model__colsample_bytree": [0.8, 0.9, 1.0],
+            "model__min_child_weight": [1, 3, 5],
+        },
+        n_iter=12,
+        scoring="f1",
+        cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42),
+        random_state=42,
+        n_jobs=1,
+        refit=True,
+    )
+    search.fit(x_train, y_train)
+
+    best_model = search.best_estimator_
+    y_pred = best_model.predict(x_test)
+    y_proba = best_model.predict_proba(x_test)[:, 1]
+
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, zero_division=0)
+    recall = recall_score(y_test, y_pred, zero_division=0)
+    f1 = f1_score(y_test, y_pred, zero_division=0)
+    roc_auc = roc_auc_score(y_test, y_proba)
+    matrix = confusion_matrix(y_test, y_pred, labels=[0, 1])
+
+    report = "\n".join(
+        [
+            "NHANES 2017-2018 XGBCLASSIFIER REPORT",
+            "=" * 80,
+            "Target: IS_LONGEVO = 1 if RIDAGEYR >= 70, else 0",
+            "MORTSTAT is not used as target or predictor.",
+            "Model: XGBClassifier with RandomizedSearchCV",
+            "CV: StratifiedKFold(n_splits=5, shuffle=True, random_state=42)",
+            "Scoring: f1",
+            "Split: test_size=0.2, random_state=42, stratify=IS_LONGEVO",
+            "",
+            f"Rows used: {len(nhanes_2017_model_input)}",
+            f"Train rows: {len(x_train)}",
+            f"Test rows: {len(x_test)}",
+            f"Train IS_LONGEVO distribution: 0={n_negative}, 1={n_positive}",
+            f"Test IS_LONGEVO distribution: 0={(y_test == 0).sum()}, 1={(y_test == 1).sum()}",
+            f"scale_pos_weight: {scale_pos_weight:.4f}",
+            "",
+            f"Best CV F1-score: {search.best_score_:.4f}",
+            f"Accuracy: {accuracy:.4f}",
+            f"Precision: {precision:.4f}",
+            f"Recall: {recall:.4f}",
+            f"F1-score: {f1:.4f}",
+            f"ROC-AUC: {roc_auc:.4f}",
+            "",
+            "Confusion matrix:",
+            _format_confusion_matrix(matrix),
+            "",
+            "Best parameters:",
+            _format_params(search.best_params_),
+            "",
+            "Predictors:",
+            ", ".join(PREDICTORS),
+        ]
+    )
+    return best_model, report
+
+
+def train_nhanes_2017_xgb_regressor(
+    nhanes_2017_model_input: pd.DataFrame,
+) -> tuple[Pipeline, str]:
+    """Train an XGBRegressor to estimate chronological age from NHANES features."""
+    x = nhanes_2017_model_input[PREDICTORS]
+    y = nhanes_2017_model_input["RIDAGEYR"].astype(float)
+
+    x_train, x_test, y_train, y_test = train_test_split(
+        x,
+        y,
+        test_size=0.2,
+        random_state=42,
+    )
+
+    model = Pipeline(
+        [
+            ("preprocessor", _build_preprocessor()),
+            (
+                "model",
+                XGBRegressor(
+                    objective="reg:squarederror",
+                    eval_metric="rmse",
+                    random_state=42,
+                    tree_method="hist",
+                    n_jobs=1,
+                ),
+            ),
+        ]
+    )
+
+    search = RandomizedSearchCV(
+        estimator=model,
+        param_distributions={
+            "model__n_estimators": [100, 200, 300],
+            "model__max_depth": [3, 4, 5],
+            "model__learning_rate": [0.01, 0.05, 0.1],
+            "model__subsample": [0.8, 0.9, 1.0],
+            "model__colsample_bytree": [0.8, 0.9, 1.0],
+            "model__min_child_weight": [1, 3, 5],
+        },
+        n_iter=12,
+        scoring="neg_mean_absolute_error",
+        cv=KFold(n_splits=5, shuffle=True, random_state=42),
+        random_state=42,
+        n_jobs=1,
+        refit=True,
+    )
+    search.fit(x_train, y_train)
+
+    best_model = search.best_estimator_
+    y_pred = best_model.predict(x_test)
+
+    mae = mean_absolute_error(y_test, y_pred)
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    r2 = r2_score(y_test, y_pred)
+
+    report = "\n".join(
+        [
+            "NHANES 2017-2018 XGBREGRESSOR REPORT",
+            "=" * 80,
+            "Target: RIDAGEYR",
+            "Purpose: estimate chronological age as a later proxy for biological age.",
+            "Model: XGBRegressor with RandomizedSearchCV",
+            "CV: KFold(n_splits=5, shuffle=True, random_state=42)",
+            "Scoring: neg_mean_absolute_error",
+            "Split: test_size=0.2, random_state=42",
+            "",
+            f"Rows used: {len(nhanes_2017_model_input)}",
+            f"Train rows: {len(x_train)}",
+            f"Test rows: {len(x_test)}",
+            "",
+            f"Best CV MAE: {-search.best_score_:.4f}",
+            f"Test MAE: {mae:.4f}",
+            f"Test RMSE: {rmse:.4f}",
+            f"Test R2: {r2:.4f}",
+            "",
+            "Best parameters:",
+            _format_params(search.best_params_),
+            "",
+            "Predictors:",
+            ", ".join(PREDICTORS),
+        ]
+    )
+    return best_model, report

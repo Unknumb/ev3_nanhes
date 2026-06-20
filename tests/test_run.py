@@ -13,6 +13,6 @@ class TestKedroPipelineRegistration:
         default_pipeline = pipelines["__default__"]
 
         assert len(default_pipeline.nodes) > 0
-        assert "merge_nhanes_2017_2018" in {
+        assert "merge_nhanes_2017" in {
             node.name for node in default_pipeline.nodes
         }
