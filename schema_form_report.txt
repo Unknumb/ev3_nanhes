@@ -1,0 +1,104 @@
+Schema form report
+==================
+
+Fecha: 2026-06-20
+Rama: feature/web-frontend
+
+Objetivo implementado
+---------------------
+Se implemento la carga y renderizado dinamico del formulario usando:
+
+GET ${NEXT_PUBLIC_API_URL}/schema
+
+No se implemento:
+- POST /predict
+- POST /explain
+- GET /metrics
+- envio del formulario
+
+Archivos creados
+----------------
+- web/components/SchemaForm.tsx
+
+Archivos modificados
+--------------------
+- web/app/page.tsx
+- web/lib/api.ts
+
+Detalle de implementacion
+-------------------------
+- web/lib/api.ts ahora expone SCHEMA_URL, construido desde NEXT_PUBLIC_API_URL.
+- web/components/SchemaForm.tsx es un componente cliente que:
+  - carga el schema con fetch(SCHEMA_URL)
+  - muestra estado "loading schema"
+  - muestra estado "schema error" si falla la carga
+  - muestra "Schema cargado correctamente" cuando el schema llega bien
+  - agrupa features por la propiedad group
+  - renderiza campos numeric como input type="number"
+  - aplica min/max cuando existen
+  - muestra unit al lado de campos numeric
+  - renderiza campos categorical como select
+  - usa options.value y options.label
+  - permite vacio en campos required=false
+  - no asigna valores por defecto a campos opcionales
+  - detecta extra_inputs con code="edad_cronologica" y lo muestra aparte
+- web/app/page.tsx incorpora el componente SchemaForm debajo del encabezado inicial.
+
+Confirmacion
+------------
+El formulario se arma desde /schema en tiempo de ejecucion del navegador.
+
+La fuente del formulario no esta hardcodeada en React: los campos, grupos, tipos, min/max, unit y options vienen del response de GET /schema.
+
+Verificacion realizada
+----------------------
+Comando ejecutado:
+cd web
+npm.cmd run build
+
+Resultado:
+- Next.js compilo correctamente.
+- TypeScript paso correctamente.
+
+Prueba contra backend local
+---------------------------
+Se intento verificar http://localhost:8000/schema, pero la API no estaba levantada.
+
+Tambien se intento levantar la API con:
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python.exe -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+
+Resultado:
+- El Python global no tiene uvicorn instalado.
+- El entorno .venv tampoco tiene uvicorn instalado.
+- No se instalaron dependencias nuevas de backend.
+
+Como probarlo
+-------------
+1. Levantar la API desde la raiz del repo:
+   pip install -r api/requirements.txt
+   uvicorn api.main:app --reload
+
+2. Verificar que el schema responda:
+   http://localhost:8000/schema
+
+3. Levantar el frontend:
+   cd web
+   npm install
+   npm run dev
+
+   En PowerShell, si npm.ps1 esta bloqueado:
+   npm.cmd install
+   npm.cmd run dev
+
+4. Abrir:
+   http://localhost:3000
+
+Resultado esperado:
+- Primero se ve "loading schema".
+- Si la API esta disponible, aparece "Schema cargado correctamente".
+- Se ve el campo extra "Tu edad real (anos)" separado en Referencia.
+- Los campos principales aparecen agrupados por group.
+- Los campos numericos usan input type="number".
+- Los campos categoricos usan select.
+- No hay boton de envio ni consumo de endpoints distintos a /schema.

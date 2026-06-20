@@ -1,0 +1,121 @@
+Git history explain report
+==========================
+
+Fecha: 2026-06-20
+Repositorio: C:\Users\juany\Desktop\ev3_nanhes
+Remoto origin: https://github.com/Unknumb/ev3_nanhes.git
+
+Resumen en simple
+-----------------
+Si, el commit del frontend existe.
+
+Tambien esta en la rama remota origin/feature/web-frontend, asi que el trabajo del frontend esta guardado en GitHub.
+
+1. Existe el commit?
+--------------------
+Commit buscado:
+"feat(web): scaffold frontend base con Next.js y Tailwind"
+
+Si, existe.
+
+Hash completo:
+09726d696bf04184dbe0ea3094544374209cfa61
+
+Hash corto:
+09726d6
+
+2. Esta contenido actualmente en las ramas?
+-------------------------------------------
+feature/web-frontend:
+Si. La rama local feature/web-frontend contiene el commit 09726d6.
+
+origin/feature/web-frontend:
+Si. La rama remota origin/feature/web-frontend tambien contiene el commit 09726d6.
+
+Esto significa que el commit ya fue enviado a GitHub en la rama feature/web-frontend.
+
+3. Historial reciente
+---------------------
+Comando:
+git log --oneline --decorate --graph --all -15
+
+Salida:
+* f2a93eb (HEAD -> feature/web-frontend, origin/feature/web-frontend) chore(web): eliminar reportes temporales de auditoria
+*   d6d779a Merge remote-tracking branch 'origin/feature/fullstack-mvp' into feature/web-frontend
+|\
+* | 09726d6 feat(web): scaffold frontend base con Next.js y Tailwind
+| | * 20d7b4f (origin/feature/backend-db) feat(api): capa de persistencia SQL (historial + agregados)
+| |/
+| * fd0ebe0 (origin/feature/fullstack-mvp) docs(plan): alinear PLAN a la pauta EV Parcial N3 (3 fuentes+DB, dashboard Streamlit por audiencia)
+|/
+* b961c52 (feature/fullstack-mvp) test(api): suite con fixture de modelo sintetico (CI-ready)
+* 14fdd4c feat(fullstack): contrato, pipeline serving y API FastAPI (MVP base)
+*   e071ec2 (origin/main, origin/HEAD) merge: integrar pipeline nhanes_2017_2018 (Juan) en main
+|\
+| * 6d53744 (origin/feature/nhanes-2017-2018-juan, feature/nhanes-2017-2018-juan) Integrar modelos XGBoost para NHANES 2017-2018
+| * 3524a8f Validar pipeline Kedro ejecutable de extremo a extremo
+| * 12714ff Integrar pipeline Kedro para modelo NHANES 2017-2018
+| * e56812f Mejorar prediccion de mortalidad con variables feature expanded
+| * 669663e Agregar dataset feature expanded y evaluar nuevas variables
+| * e59b79a Evaluar regresion logistica balanceada y escalada
+| * 40482c8 Entrenar modelo baseline de mortalidad con regresion logistica
+
+Que significa:
+- HEAD -> feature/web-frontend significa que ahora estas parado en la rama local feature/web-frontend.
+- origin/feature/web-frontend al lado de f2a93eb significa que GitHub tiene esa rama en el mismo commit que tu rama local.
+- 09726d6 es tu commit del frontend. Sigue apareciendo en el historial.
+- d6d779a es un merge commit. Es el commit que unio tu trabajo frontend con el cambio nuevo de origin/feature/fullstack-mvp.
+- fd0ebe0 es el commit que venia desde origin/feature/fullstack-mvp.
+- El grafico con ramas no significa que se perdio nada; solo muestra que hubo dos lineas de trabajo que luego se unieron con el merge.
+
+4. Despues del merge d6d779a, el commit frontend sigue existiendo?
+------------------------------------------------------------------
+Si. El commit 09726d6 sigue existiendo como commit independiente.
+
+No quedo absorbido ni desaparecio.
+
+El merge d6d779a no reemplazo tu commit. Lo que hizo fue crear un commit nuevo que une:
+- tu commit frontend 09726d6
+- el commit remoto del padre fd0ebe0
+
+Por eso en el grafo se ve:
+- primero 09726d6 con tu scaffold frontend
+- luego d6d779a como merge
+- luego f2a93eb como limpieza de reportes temporales
+
+5. En GitHub, donde deberia verlo?
+----------------------------------
+Si abres la rama feature/web-frontend en GitHub, deberias verlo en el historial de commits de esa rama.
+
+Rama:
+https://github.com/Unknumb/ev3_nanhes/tree/feature/web-frontend
+
+Commits de la rama:
+https://github.com/Unknumb/ev3_nanhes/commits/feature/web-frontend
+
+Dentro de esa lista deberias ver el commit:
+09726d6 feat(web): scaffold frontend base con Next.js y Tailwind
+
+Puede no estar arriba del todo, porque despues de ese commit hay commits mas recientes:
+- d6d779a merge con origin/feature/fullstack-mvp
+- f2a93eb limpieza de reportes temporales
+
+6. URL exacta del commit si ya fue enviado al remoto
+----------------------------------------------------
+Como origin/feature/web-frontend contiene el commit, la URL exacta es:
+
+https://github.com/Unknumb/ev3_nanhes/commit/09726d696bf04184dbe0ea3094544374209cfa61
+
+7. Mi trabajo del frontend esta guardado en GitHub?
+---------------------------------------------------
+Si.
+
+Confirmacion explicita:
+Tu trabajo del frontend esta guardado en GitHub en la rama origin/feature/web-frontend.
+
+La prueba es que origin/feature/web-frontend contiene el commit:
+09726d696bf04184dbe0ea3094544374209cfa61
+
+Conclusion
+----------
+No perdiste el trabajo del frontend. El commit sigue vivo, sigue siendo independiente, y ya esta en GitHub.
