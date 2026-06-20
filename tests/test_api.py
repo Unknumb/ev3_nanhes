@@ -18,6 +18,7 @@ import pytest
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 pytest.importorskip("xgboost")
+pytest.importorskip("sqlalchemy")
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
@@ -30,6 +31,8 @@ from ev3_nhanes.pipelines.nhanes_2015 import nodes as n2015  # noqa: E402
 # resuelven en tiempo de import dentro de model_registry).
 _TMP_DIR = Path(tempfile.mkdtemp(prefix="ev3_serving_test_"))
 os.environ["MODEL_DIR"] = str(_TMP_DIR)
+# BD aislada para el test (sqlite temporal): no toca data/predictions.db del repo.
+os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DIR / 'test_predictions.db'}"
 
 # Features requeridas del contrato 2015 (las opcionales se omiten a proposito
 # para verificar que el imputador del Pipeline las completa).
@@ -103,6 +106,7 @@ def test_health(client):
     body = r.json()
     assert body["status"] == "ok"
     assert body["models_ready"] is True
+    assert body["db_ready"] is True  # sqlite temporal siempre acepta conexion
 
 
 def test_schema_tiene_23_features(client):
@@ -160,6 +164,28 @@ def test_metrics_responde(client):
     r = client.get("/metrics")
     assert r.status_code == 200
     assert isinstance(r.json(), dict)
+
+
+def test_aggregates_refleja_predicciones(client):
+    # genera al menos una prediccion y verifica que el historial la cuenta
+    client.post("/predict", json={"features": VALID_FEATURES, "edad_cronologica": 64})
+    r = client.get("/aggregates")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total_predicciones"] >= 1
+    assert 0.0 <= body["pct_longevos"] <= 100.0
+    assert body["edad_biologica_promedio"] is not None
+    assert isinstance(body["edad_biologica_distribucion"], list)
+    assert len(body["ultimas"]) >= 1
+
+
+def test_predict_persiste_en_bd(client):
+    from api import db
+
+    antes = db.get_aggregates()["total_predicciones"]
+    client.post("/predict", json={"features": VALID_FEATURES})
+    despues = db.get_aggregates()["total_predicciones"]
+    assert despues == antes + 1
 
 
 def test_explain_si_shap_disponible(client):

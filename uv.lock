@@ -999,6 +999,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-mock" },
     { name = "ruff" },
+    { name = "sqlalchemy" },
 ]
 docs = [
     { name = "docutils" },
@@ -1038,6 +1039,7 @@ requires-dist = [
     { name = "sphinx-autodoc-typehints", marker = "extra == 'docs'", specifier = "==1.20.2" },
     { name = "sphinx-copybutton", marker = "extra == 'docs'", specifier = "==0.5.2" },
     { name = "sphinx-rtd-theme", marker = "extra == 'docs'", specifier = "==2.0.0" },
+    { name = "sqlalchemy", marker = "extra == 'dev'", specifier = ">=2.0" },
     { name = "xgboost", specifier = ">=2.0" },
 ]
 provides-extras = ["docs", "dev"]
