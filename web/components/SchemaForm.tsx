@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { PREDICT_URL, SCHEMA_URL } from "@/lib/api";
+import { EXPLAIN_URL, PREDICT_URL, SCHEMA_URL } from "@/lib/api";
 
 type SchemaOption = {
   value: number | string;
@@ -36,6 +36,23 @@ type PredictPayload = {
 type SubmitState =
   | { status: "idle"; message: null }
   | { status: "submitting"; message: null }
+  | { status: "success"; message: string }
+  | { status: "error"; message: string };
+
+type ExplainContribution = {
+  feature: string;
+  shap: number;
+  empuja: "longevo" | "no_longevo";
+};
+
+type ExplainResult = {
+  base_value?: number;
+  contribuciones: ExplainContribution[];
+};
+
+type ExplainState =
+  | { status: "idle"; message: null }
+  | { status: "loading"; message: string }
   | { status: "success"; message: string }
   | { status: "error"; message: string };
 
@@ -213,6 +230,11 @@ export function SchemaForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [lastPayload, setLastPayload] = useState<PredictPayload | null>(null);
   const [predictResult, setPredictResult] = useState<unknown>(null);
+  const [explainState, setExplainState] = useState<ExplainState>({
+    status: "idle",
+    message: null
+  });
+  const [explainResult, setExplainResult] = useState<ExplainResult | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -282,6 +304,8 @@ export function SchemaForm() {
     setFieldErrors({});
     setLastPayload(payload);
     setPredictResult(null);
+    setExplainResult(null);
+    setExplainState({ status: "idle", message: null });
     setSubmitState({ status: "submitting", message: null });
 
     try {
@@ -317,6 +341,43 @@ export function SchemaForm() {
         status: "success",
         message: "Prediccion recibida correctamente"
       });
+      setExplainState({
+        status: "loading",
+        message: "loading explain"
+      });
+
+      try {
+        const explainResponse = await fetch(EXPLAIN_URL, {
+          body: JSON.stringify(payload),
+          headers: {
+            "Content-Type": "application/json"
+          },
+          method: "POST"
+        });
+        const explainBody = await explainResponse.json().catch(() => null);
+
+        if (!explainResponse.ok) {
+          throw new Error(
+            explainBody?.detail
+              ? String(explainBody.detail)
+              : `POST /explain respondio ${explainResponse.status}`
+          );
+        }
+
+        setExplainResult(explainBody as ExplainResult);
+        setExplainState({
+          status: "success",
+          message: "explain success"
+        });
+      } catch (error) {
+        setExplainState({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "No se pudo cargar explain"
+        });
+      }
     } catch (error) {
       setSubmitState({
         status: "error",
@@ -399,6 +460,79 @@ export function SchemaForm() {
           </div>
         )}
       </section>
+
+      {predictResult !== null && (
+        <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5">
+          <h2 className="text-xl font-semibold text-slate-950">
+            Explain temporal
+          </h2>
+
+          {explainState.status === "loading" && (
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              {explainState.message}
+            </div>
+          )}
+
+          {explainState.status === "error" && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+              explain error: {explainState.message}
+            </div>
+          )}
+
+          {explainState.status === "success" && explainResult && (
+            <div className="grid gap-4">
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
+                {explainState.message}
+              </div>
+
+              {explainResult.base_value !== undefined && (
+                <p className="text-sm text-slate-600">
+                  base_value: {explainResult.base_value}
+                </p>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-600">
+                      <th className="py-3 pr-4 font-semibold">feature</th>
+                      <th className="py-3 pr-4 font-semibold">shap</th>
+                      <th className="py-3 pr-4 font-semibold">empuja</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {explainResult.contribuciones.map((contribution) => (
+                      <tr
+                        className="border-b border-slate-100"
+                        key={`${contribution.feature}-${contribution.shap}`}
+                      >
+                        <td className="py-3 pr-4 font-medium text-slate-950">
+                          {contribution.feature}
+                        </td>
+                        <td className="py-3 pr-4 text-slate-700">
+                          {contribution.shap}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span
+                            className={
+                              contribution.empuja === "longevo"
+                                ? "inline-flex rounded-md bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800"
+                                : "inline-flex rounded-md bg-red-100 px-2 py-1 text-xs font-semibold text-red-800"
+                            }
+                          >
+                            {contribution.empuja === "longevo" ? "+" : "-"}{" "}
+                            {contribution.empuja}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {(lastPayload !== null || predictResult !== null) && (
         <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5">
