@@ -1,0 +1,79 @@
+Frontend setup report
+=====================
+
+Fecha: 2026-06-20
+Rama: feature/web-frontend
+Directorio frontend: web/
+URL local esperada: http://localhost:3000
+API configurada: http://localhost:8000
+
+Archivos y carpetas creados
+---------------------------
+- web/
+- web/.gitignore
+- web/app/
+- web/app/globals.css
+- web/app/layout.tsx
+- web/app/page.tsx
+- web/components/
+- web/components/.gitkeep
+- web/lib/
+- web/lib/api.ts
+- web/public/
+- web/public/.gitkeep
+- web/package.json
+- web/package-lock.json
+- web/tsconfig.json
+- web/next-env.d.ts
+- web/next.config.ts
+- web/tailwind.config.ts
+- web/postcss.config.js
+- web/.env.local.example
+
+Archivo existente ajustado
+--------------------------
+- .gitignore: se agrego una excepcion para que web/lib/api.ts no quede ignorado por la regla Python lib/.
+
+Contenido inicial
+-----------------
+- Pagina inicial en web/app/page.tsx.
+- Titulo visible: "Predictor de Longevidad".
+- Texto visible: "Frontend inicial conectado a la API".
+- Tailwind CSS configurado en web/tailwind.config.ts, web/postcss.config.js y web/app/globals.css.
+- Constante NEXT_PUBLIC_API_URL creada en web/lib/api.ts.
+- No se implementaron llamadas a /schema, /predict, /explain ni /metrics.
+
+Comandos ejecutados para verificar
+----------------------------------
+Desde web/:
+npm.cmd install
+npm.cmd run dev
+
+Resultado de verificacion
+-------------------------
+- npm install completo correctamente.
+- npm run dev inicio Next.js correctamente.
+- Next.js quedo disponible en http://localhost:3000.
+- Verificacion HTTP local contra http://localhost:3000 devolvio status 200.
+
+Comandos para ejecutar localmente
+---------------------------------
+Desde la raiz del repo:
+cd web
+npm install
+npm run dev
+
+Nota para PowerShell en este equipo:
+si npm esta bloqueado por la politica de ejecucion de scripts, usar:
+npm.cmd install
+npm.cmd run dev
+
+Variables de entorno
+--------------------
+Copiar web/.env.local.example a web/.env.local cuando se quiera configurar el entorno local.
+Valor esperado:
+NEXT_PUBLIC_API_URL=http://localhost:8000
+
+Estado
+------
+Base frontend creada y funcionando. No hay logica de negocio ni consumo de endpoints todavia.
