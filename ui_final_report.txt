@@ -1,0 +1,120 @@
+UI final report
+===============
+
+Fecha: 2026-06-20
+Rama: feature/web-frontend
+
+Objetivo implementado
+---------------------
+Se transformo la salida tecnica temporal del formulario en una interfaz final de MVP para resultados.
+
+Se mantuvieron los contratos existentes:
+- GET /schema
+- POST /predict
+- POST /explain
+- GET /metrics
+
+No se modifico backend.
+
+Archivos modificados
+--------------------
+- web/components/SchemaForm.tsx
+
+Archivos creados
+----------------
+- ui_final_report.txt
+
+Componentes/funciones creados dentro de SchemaForm.tsx
+------------------------------------------------------
+- PredictResult: tipo para la respuesta de /predict.
+- ResultSummary: tarjeta principal de resultados.
+- ShapBars: visualizacion temporal de SHAP con barras horizontales.
+- TechnicalJson: seccion colapsable con JSON tecnico.
+- formatYears: formatea edades.
+- formatGap: formatea gap con signo.
+- getProbabilityPercent: convierte probabilidad 0-1 a porcentaje.
+- getProbabilityTone: decide color verde/amarillo/rojo.
+- getGapLabel: etiqueta el gap como envejecimiento acelerado, menor o alineado.
+
+Descripcion visual
+------------------
+Despues de enviar el formulario y recibir /predict correctamente, se muestra una tarjeta principal con:
+
+- Encabezado "Evaluacion de longevidad".
+- Badge de probabilidad:
+  - Verde si probabilidad > 70%.
+  - Amarillo si probabilidad esta entre 40% y 70%.
+  - Rojo si probabilidad < 40%.
+- Tres bloques:
+  - Edad cronologica.
+  - Edad biologica.
+  - Gap, etiquetado como "Envejecimiento acelerado", "Envejecimiento menor al cronologico" o "Edad biologica alineada".
+- Porcentaje grande de probabilidad de longevidad.
+- Barra de progreso horizontal con el mismo color del indicador.
+- Texto de clasificacion: "Clasifica como longevo" o "No clasifica como longevo".
+
+SHAP
+----
+La tabla temporal fue reemplazada por barras horizontales:
+
+- Cada fila muestra feature, magnitud y direccion.
+- Las barras se escalan contra la mayor magnitud absoluta recibida.
+- Si empuja="longevo", la barra y etiqueta son verdes.
+- Si empuja="no_longevo", la barra y etiqueta son rojas.
+- Se conserva el mensaje de error de SHAP sin romper la tarjeta de /predict.
+
+JSON tecnico
+------------
+El JSON tecnico sigue disponible bajo una seccion colapsable:
+
+"Ver JSON tecnico"
+
+Dentro se muestra:
+- Payload enviado.
+- Respuesta de /predict.
+- Respuesta de /explain, si existe.
+
+Verificacion
+------------
+Comando ejecutado:
+cd web
+npm.cmd run build
+
+Resultado:
+- Next.js compilo correctamente.
+- TypeScript paso correctamente.
+- La ruta principal / sigue disponible.
+- La ruta /metrics sigue disponible.
+
+Capturas
+--------
+No se genero captura real con datos porque la API local/modelos no estan disponibles en este entorno. La descripcion visual anterior corresponde al estado renderizado esperado al recibir respuestas validas de /predict y /explain.
+
+Como probar
+-----------
+1. Levantar API y modelos:
+   pip install -r api/requirements.txt
+   kedro run --pipeline nhanes_2015
+   kedro run --pipeline serving
+   uvicorn api.main:app --reload
+
+2. Levantar frontend:
+   cd web
+   npm install
+   npm run dev
+
+   En PowerShell, si npm.ps1 esta bloqueado:
+   npm.cmd install
+   npm.cmd run dev
+
+3. Abrir:
+   http://localhost:3000
+
+4. Completar campos requeridos y enviar.
+
+Resultado esperado:
+- Se ve la tarjeta principal de resultados.
+- Se ve porcentaje grande y barra de progreso.
+- El color cambia segun probabilidad.
+- Se ven barras SHAP si /explain responde correctamente.
+- El JSON tecnico queda colapsado bajo "Ver JSON tecnico".
