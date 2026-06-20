@@ -13,9 +13,11 @@ dependencies = [
     "notebook",
     "kedro~=1.4.0",
     "pandas>=2.3.3",
-    "kedro-datasets[pandas]>=9.4.0",
+    "kedro-datasets[pandas,text]>=9.4.0",
     "scikit-learn>=1.4",
     "xgboost>=2.0",
+    "pyreadstat>=1.2",
+    "requests>=2.31",
 ]
 
 [project.scripts]

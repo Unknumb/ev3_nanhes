@@ -1,4 +1,65 @@
-# Here you can define all your datasets by using simple YAML syntax.
-#
-# Documentation for this file format can be found in "The Data Catalog"
-# Link: https://docs.kedro.org/en/stable/catalog-data/introduction/#data-catalog
+# NHANES 2017-2018 source datasets from CDC.
+
+raw_nhanes_2017_demo:
+  type: ev3_nhanes.loaders.SASDataset
+  filepath: https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/DEMO_J.xpt
+
+raw_nhanes_2017_bmx:
+  type: ev3_nhanes.loaders.SASDataset
+  filepath: https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/BMX_J.xpt
+
+raw_nhanes_2017_bpx:
+  type: ev3_nhanes.loaders.SASDataset
+  filepath: https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/BPX_J.xpt
+
+raw_nhanes_2017_diq:
+  type: ev3_nhanes.loaders.SASDataset
+  filepath: https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/DIQ_J.xpt
+
+raw_nhanes_2017_smq:
+  type: ev3_nhanes.loaders.SASDataset
+  filepath: https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/SMQ_J.xpt
+
+raw_nhanes_2017_mortality:
+  type: ev3_nhanes.loaders.MortalityDataset
+  filepath: https://ftp.cdc.gov/pub/Health_Statistics/NCHS/datalinkage/linked_mortality/NHANES_2017_2018_MORT_2019_PUBLIC.dat
+
+nhanes_2017_merged:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/02_intermediate/nhanes_2017_merged.csv
+  save_args:
+    index: false
+
+nhanes_2017_feature_expanded:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/04_feature/nhanes_2017_feature_expanded.csv
+  save_args:
+    index: false
+
+nhanes_2017_model_input:
+  type: kedro_datasets.pandas.CSVDataset
+  filepath: data/05_model_input/nhanes_2017_model_input.csv
+  save_args:
+    index: false
+
+nhanes_2017_report:
+  type: kedro_datasets.text.TextDataset
+  filepath: data/08_reporting/nhanes_2017_report.txt
+
+modelo_clasificacion_nhanes_2017:
+  type: kedro_datasets.pickle.PickleDataset
+  filepath: data/06_models/modelo_clasificacion_nhanes_2017.pkl
+  versioned: true
+
+modelo_regresion_nhanes_2017:
+  type: kedro_datasets.pickle.PickleDataset
+  filepath: data/06_models/modelo_regresion_nhanes_2017.pkl
+  versioned: true
+
+nhanes_2017_clasificacion_report:
+  type: kedro_datasets.text.TextDataset
+  filepath: data/08_reporting/nhanes_2017_clasificacion_report.txt
+
+nhanes_2017_regresion_report:
+  type: kedro_datasets.text.TextDataset
+  filepath: data/08_reporting/nhanes_2017_regresion_report.txt
