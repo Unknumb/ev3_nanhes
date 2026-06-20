@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SCHEMA_URL } from "@/lib/api";
+import { PREDICT_URL, SCHEMA_URL } from "@/lib/api";
 
 type SchemaOption = {
   value: number | string;
@@ -28,6 +28,17 @@ type FeatureSchema = {
   extra_inputs?: SchemaField[] | Record<string, SchemaField>;
 };
 
+type PredictPayload = {
+  features: Record<string, number | string | null>;
+  edad_cronologica: number | null;
+};
+
+type SubmitState =
+  | { status: "idle"; message: null }
+  | { status: "submitting"; message: null }
+  | { status: "success"; message: string }
+  | { status: "error"; message: string };
+
 type SchemaState =
   | { status: "loading"; data: null; error: null }
   | { status: "loaded"; data: FeatureSchema; error: null }
@@ -51,7 +62,81 @@ function groupFields(fields: SchemaField[]) {
   }, {});
 }
 
-function FieldControl({ field }: { field: SchemaField }) {
+function parseFieldValue(field: SchemaField, formData: FormData) {
+  const rawValue = formData.get(field.code);
+
+  if (rawValue === null || rawValue === "") {
+    return null;
+  }
+
+  if (field.type === "numeric") {
+    return Number(rawValue);
+  }
+
+  const matchingOption = field.options?.find(
+    (option) => String(option.value) === String(rawValue)
+  );
+
+  if (typeof matchingOption?.value === "number") {
+    return Number(rawValue);
+  }
+
+  return String(rawValue);
+}
+
+function buildPredictPayload(
+  schema: FeatureSchema,
+  formData: FormData
+): PredictPayload {
+  const features = schema.features.reduce<Record<string, number | string | null>>(
+    (payloadFeatures, field) => {
+      payloadFeatures[field.code] = parseFieldValue(field, formData);
+      return payloadFeatures;
+    },
+    {}
+  );
+
+  const edadCronologicaField = normalizeExtraInputs(schema.extra_inputs).find(
+    (field) => field.code === "edad_cronologica"
+  );
+
+  return {
+    features,
+    edad_cronologica: edadCronologicaField
+      ? (parseFieldValue(edadCronologicaField, formData) as number | null)
+      : null
+  };
+}
+
+function getErrorsByField(detail: unknown) {
+  const errorsByField: Record<string, string> = {};
+
+  if (Array.isArray(detail)) {
+    detail.forEach((item) => {
+      const message =
+        typeof item === "string"
+          ? item
+          : typeof item === "object" && item !== null && "msg" in item
+            ? String(item.msg)
+            : JSON.stringify(item);
+      const match = message.match(/'([^']+)'/);
+
+      if (match?.[1]) {
+        errorsByField[match[1]] = message;
+      }
+    });
+  }
+
+  return errorsByField;
+}
+
+function FieldControl({
+  error,
+  field
+}: {
+  error?: string;
+  field: SchemaField;
+}) {
   const fieldId = `field-${field.code}`;
 
   return (
@@ -110,6 +195,7 @@ function FieldControl({ field }: { field: SchemaField }) {
       )}
 
       {field.note && <span className="text-xs text-slate-500">{field.note}</span>}
+      {error && <span className="text-xs font-medium text-red-700">{error}</span>}
     </label>
   );
 }
@@ -120,6 +206,13 @@ export function SchemaForm() {
     data: null,
     error: null
   });
+  const [submitState, setSubmitState] = useState<SubmitState>({
+    status: "idle",
+    message: null
+  });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [lastPayload, setLastPayload] = useState<PredictPayload | null>(null);
+  const [predictResult, setPredictResult] = useState<unknown>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -176,6 +269,65 @@ export function SchemaForm() {
     );
   }, [schemaState]);
 
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (schemaState.status !== "loaded") {
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    const payload = buildPredictPayload(schemaState.data, formData);
+
+    setFieldErrors({});
+    setLastPayload(payload);
+    setPredictResult(null);
+    setSubmitState({ status: "submitting", message: null });
+
+    try {
+      const response = await fetch(PREDICT_URL, {
+        body: JSON.stringify(payload),
+        headers: {
+          "Content-Type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseBody = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        if (response.status === 422) {
+          const errors = getErrorsByField(responseBody?.detail);
+          setFieldErrors(errors);
+          throw new Error("Revisa los campos marcados por la API");
+        }
+
+        if (response.status === 503) {
+          throw new Error("Modelo no disponible actualmente");
+        }
+
+        throw new Error(
+          responseBody?.detail
+            ? String(responseBody.detail)
+            : `POST /predict respondio ${response.status}`
+        );
+      }
+
+      setPredictResult(responseBody);
+      setSubmitState({
+        status: "success",
+        message: "Prediccion recibida correctamente"
+      });
+    } catch (error) {
+      setSubmitState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo enviar el formulario"
+      });
+    }
+  }
+
   if (schemaState.status === "loading") {
     return (
       <div className="rounded-md border border-slate-200 bg-white p-6 text-sm text-slate-600">
@@ -194,7 +346,7 @@ export function SchemaForm() {
   }
 
   return (
-    <form className="grid gap-8" onSubmit={(event) => event.preventDefault()}>
+    <form className="grid gap-8" onSubmit={handleSubmit}>
       <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
         Schema cargado correctamente
       </div>
@@ -203,7 +355,10 @@ export function SchemaForm() {
         <section className="grid gap-4">
           <h2 className="text-xl font-semibold text-slate-950">Referencia</h2>
           <div className="grid gap-4 md:grid-cols-2">
-            <FieldControl field={edadCronologica} />
+            <FieldControl
+              error={fieldErrors[edadCronologica.code]}
+              field={edadCronologica}
+            />
           </div>
         </section>
       )}
@@ -213,11 +368,65 @@ export function SchemaForm() {
           <h2 className="text-xl font-semibold text-slate-950">{groupName}</h2>
           <div className="grid gap-4 md:grid-cols-2">
             {fields.map((field) => (
-              <FieldControl field={field} key={field.code} />
+              <FieldControl
+                error={fieldErrors[field.code]}
+                field={field}
+                key={field.code}
+              />
             ))}
           </div>
         </section>
       ))}
+
+      <section className="grid gap-4 border-t border-slate-200 pt-6">
+        <button
+          className="min-h-11 w-full rounded-md bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-fit"
+          disabled={submitState.status === "submitting"}
+          type="submit"
+        >
+          {submitState.status === "submitting" ? "Enviando..." : "Enviar a predict"}
+        </button>
+
+        {submitState.status === "success" && (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
+            {submitState.message}
+          </div>
+        )}
+
+        {submitState.status === "error" && (
+          <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">
+            {submitState.message}
+          </div>
+        )}
+      </section>
+
+      {(lastPayload !== null || predictResult !== null) && (
+        <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-5">
+          <h2 className="text-xl font-semibold text-slate-950">Resultado temporal</h2>
+
+          {lastPayload && (
+            <div className="grid gap-2">
+              <h3 className="text-sm font-semibold text-slate-700">
+                Payload enviado
+              </h3>
+              <pre className="overflow-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-50">
+                {JSON.stringify(lastPayload, null, 2)}
+              </pre>
+            </div>
+          )}
+
+          {predictResult !== null && (
+            <div className="grid gap-2">
+              <h3 className="text-sm font-semibold text-slate-700">
+                Respuesta de /predict
+              </h3>
+              <pre className="overflow-auto rounded-md bg-slate-950 p-4 text-xs leading-6 text-slate-50">
+                {JSON.stringify(predictResult, null, 2)}
+              </pre>
+            </div>
+          )}
+        </section>
+      )}
     </form>
   );
 }
