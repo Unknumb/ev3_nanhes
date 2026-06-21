@@ -183,3 +183,4 @@ output_pca_scree_plot: "data/08_reporting/nhanes_2013_pca_screeplot.png"
 output_cluster_boxplots: "data/08_reporting/nhanes_2013_cluster_boxplots.png"
 output_confusion_matrix: "data/08_reporting/nhanes_2013_confusion_matrix.png"
 output_feature_importance: "data/08_reporting/nhanes_2013_feature_importance.png"
+

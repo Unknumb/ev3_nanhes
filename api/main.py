@@ -1,18 +1,6 @@
-"""API FastAPI: sirve el modelo de longevidad 2015 (clasificacion + regresion).
-
-Endpoints:
-  GET  /health   -> liveness + si los modelos estan cargados
-  GET  /schema   -> feature_schema.json (el front renderiza el form desde aqui)
-  POST /predict  -> es_longevo, probabilidad, edad biologica, gap
-  POST /explain  -> contribuciones SHAP por feature (requiere shap instalado)
-  GET  /metrics  -> reportes de entrenamiento (accuracy / MAE) en texto
-
-Ejecutar desde la raiz del repo:
-  uvicorn api.main:app --reload
-"""
-
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -27,24 +15,29 @@ app = FastAPI(
     description="Predice longevidad (IS_LONGEVO) y edad biologica desde biomarcadores NHANES.",
 )
 
-# Front local (Next.js) en desarrollo.
+_raw_origins = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8501",
+)
+ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "models_ready": registry.models_ready()}
-
+    return {
+        "status": "ok",
+        "models_ready": registry.models_ready(),
+    }
 
 @app.get("/schema")
 def schema() -> dict:
     return registry.load_schema()
-
 
 def _require_models() -> None:
     if not registry.models_ready():
@@ -53,7 +46,6 @@ def _require_models() -> None:
             detail="Modelos no disponibles. Corre: kedro run --pipeline serving",
         )
 
-
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest) -> PredictResponse:
     _require_models()
@@ -61,7 +53,6 @@ def predict(req: PredictRequest) -> PredictResponse:
     if errores:
         raise HTTPException(status_code=422, detail=errores)
     return PredictResponse(**registry.predict(req.features, req.edad_cronologica))
-
 
 @app.post("/explain")
 def explain(req: PredictRequest) -> dict:
@@ -73,7 +64,6 @@ def explain(req: PredictRequest) -> dict:
         return registry.explain(req.features)
     except RuntimeError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
-
 
 @app.get("/metrics")
 def metrics() -> dict:
