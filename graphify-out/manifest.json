@@ -1,0 +1,447 @@
+{
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/.claude/settings.local.json": {
+    "mtime": 1781997493.4177184,
+    "ast_hash": "09c171f09c5d54c1291494da4fb7bf15",
+    "semantic_hash": "09c171f09c5d54c1291494da4fb7bf15"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/api/__init__.py": {
+    "mtime": 1781931238.9742007,
+    "ast_hash": "177cc260b006d5f53dab251932484dda",
+    "semantic_hash": "177cc260b006d5f53dab251932484dda"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/api/db.py": {
+    "mtime": 1782003168.0000825,
+    "ast_hash": "08e7650730f6df5dd3cb2bfe83058cd6",
+    "semantic_hash": "08e7650730f6df5dd3cb2bfe83058cd6"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/api/main.py": {
+    "mtime": 1782004899.5648642,
+    "ast_hash": "46a667cc57c6e368bed26120c6bd193b",
+    "semantic_hash": "46a667cc57c6e368bed26120c6bd193b"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/api/model_registry.py": {
+    "mtime": 1781931211.7283907,
+    "ast_hash": "c85c9116dbc7f26ab6562db9d573dd75",
+    "semantic_hash": "c85c9116dbc7f26ab6562db9d573dd75"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/api/schema.py": {
+    "mtime": 1781931227.0209868,
+    "ast_hash": "a50d5ddcb9b11b90480d0facd35f0017",
+    "semantic_hash": "a50d5ddcb9b11b90480d0facd35f0017"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/02_intermediate/metadata_preprocesamiento.json": {
+    "mtime": 1781144723.6627667,
+    "ast_hash": "2074ad7b88fe5010cc616c1eefaa4533",
+    "semantic_hash": "2074ad7b88fe5010cc616c1eefaa4533"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/09_serving/metadata.json": {
+    "mtime": 1782005230.5020466,
+    "ast_hash": "ba842139426ee09d5af8c9de4012809a",
+    "semantic_hash": "ba842139426ee09d5af8c9de4012809a"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/docs/source/conf.py": {
+    "mtime": 1780626725.393251,
+    "ast_hash": "f2c4356ae0f34299d08ee7150602a0f4",
+    "semantic_hash": "f2c4356ae0f34299d08ee7150602a0f4"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/feature_schema.json": {
+    "mtime": 1781931185.2548065,
+    "ast_hash": "24c942566f02e8f49a65da764fdaa09c",
+    "semantic_hash": "24c942566f02e8f49a65da764fdaa09c"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/__init__.py": {
+    "mtime": 1780626725.3939035,
+    "ast_hash": "fc4e6afd574349c0bab1699873fc664b",
+    "semantic_hash": "fc4e6afd574349c0bab1699873fc664b"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/__main__.py": {
+    "mtime": 1780626725.3940117,
+    "ast_hash": "1c60d0f69cf334d46010df2d13e4838a",
+    "semantic_hash": "1c60d0f69cf334d46010df2d13e4838a"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/loaders/__init__.py": {
+    "mtime": 1781930326.0583022,
+    "ast_hash": "529fd72f3fae8c162965c803134409ca",
+    "semantic_hash": "529fd72f3fae8c162965c803134409ca"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/loaders/sas_loader.py": {
+    "mtime": 1781930326.058411,
+    "ast_hash": "7c451913e7cd680588b385cb10aa7cfd",
+    "semantic_hash": "7c451913e7cd680588b385cb10aa7cfd"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipeline_registry.py": {
+    "mtime": 1781750381.0523815,
+    "ast_hash": "c58d863762f2d7274c259551b78af385",
+    "semantic_hash": "c58d863762f2d7274c259551b78af385"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/__init__.py": {
+    "mtime": 1780626725.3942087,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/load_db/__init__.py": {
+    "mtime": 1782004899.5659711,
+    "ast_hash": "a8591d0e85fcf9edcc562c90db0f28d3",
+    "semantic_hash": "a8591d0e85fcf9edcc562c90db0f28d3"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/load_db/nodes.py": {
+    "mtime": 1782004899.5661929,
+    "ast_hash": "155799b62a3a774786936e9539b36dca",
+    "semantic_hash": "155799b62a3a774786936e9539b36dca"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/load_db/pipeline.py": {
+    "mtime": 1782004899.5663712,
+    "ast_hash": "0d789747c49562ddc4961095e4cfadac",
+    "semantic_hash": "0d789747c49562ddc4961095e4cfadac"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/nhanes_2013/__init__.py": {
+    "mtime": 1781750323.3283107,
+    "ast_hash": "d3ab7d041ea48c3dc3a466d3906b22a9",
+    "semantic_hash": "d3ab7d041ea48c3dc3a466d3906b22a9"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/nhanes_2013/nodes.py": {
+    "mtime": 1781750323.3284771,
+    "ast_hash": "fa0311648d969d6678608d8ea22e4213",
+    "semantic_hash": "fa0311648d969d6678608d8ea22e4213"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/nhanes_2013/pipeline.py": {
+    "mtime": 1781750323.3286076,
+    "ast_hash": "5586e8927132b8d10e1e750b5f1afd3c",
+    "semantic_hash": "5586e8927132b8d10e1e750b5f1afd3c"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/nhanes_2015/__init__.py": {
+    "mtime": 1781750311.697773,
+    "ast_hash": "aecb46f4da6090e6924656b4c1836c26",
+    "semantic_hash": "aecb46f4da6090e6924656b4c1836c26"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/nhanes_2015/nodes.py": {
+    "mtime": 1781750311.6978643,
+    "ast_hash": "575d18d9da408362cd1bc2ef29f8150f",
+    "semantic_hash": "575d18d9da408362cd1bc2ef29f8150f"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/nhanes_2015/pipeline.py": {
+    "mtime": 1781750311.6979136,
+    "ast_hash": "6d8d62350195c5d7d3641fa88d8d2b41",
+    "semantic_hash": "6d8d62350195c5d7d3641fa88d8d2b41"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/nhanes_2017_2018/__init__.py": {
+    "mtime": 1781930326.0584853,
+    "ast_hash": "989d153aabb34b935c5e0075c53247b2",
+    "semantic_hash": "989d153aabb34b935c5e0075c53247b2"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/nhanes_2017_2018/nodes.py": {
+    "mtime": 1781930326.0586672,
+    "ast_hash": "b5a3c62ff749d6f50c753e2138bd082a",
+    "semantic_hash": "b5a3c62ff749d6f50c753e2138bd082a"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/nhanes_2017_2018/pipeline.py": {
+    "mtime": 1781930326.058823,
+    "ast_hash": "ce13ead11e457bab0c0ae4fec00d397d",
+    "semantic_hash": "ce13ead11e457bab0c0ae4fec00d397d"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/serving/__init__.py": {
+    "mtime": 1781931136.0134978,
+    "ast_hash": "13c262e567c379175ed48dec00f689e7",
+    "semantic_hash": "13c262e567c379175ed48dec00f689e7"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/serving/nodes.py": {
+    "mtime": 1781931149.2095714,
+    "ast_hash": "4a03c961cf6627e3e2b5041ff80807ff",
+    "semantic_hash": "4a03c961cf6627e3e2b5041ff80807ff"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/pipelines/serving/pipeline.py": {
+    "mtime": 1781931154.8847034,
+    "ast_hash": "123e2ba32ded7e381936b0ea4d3f1492",
+    "semantic_hash": "123e2ba32ded7e381936b0ea4d3f1492"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/src/ev3_nhanes/settings.py": {
+    "mtime": 1780626725.3943357,
+    "ast_hash": "267d2a7fef136c5b9048d6aa14ffa59f",
+    "semantic_hash": "267d2a7fef136c5b9048d6aa14ffa59f"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/tests/__init__.py": {
+    "mtime": 1780626725.3944342,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/tests/pipelines/__init__.py": {
+    "mtime": 1780626725.3945515,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/tests/pipelines/nhanes_2015/__init__.py": {
+    "mtime": 1781750311.6979659,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/tests/pipelines/nhanes_2015/test_pipeline.py": {
+    "mtime": 1781750311.6980264,
+    "ast_hash": "2380de7a17a5b6c2320521690261a321",
+    "semantic_hash": "2380de7a17a5b6c2320521690261a321"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/tests/test_api.py": {
+    "mtime": 1782003168.0004933,
+    "ast_hash": "ddf8822031eaa1dbc960cb2ee9715060",
+    "semantic_hash": "ddf8822031eaa1dbc960cb2ee9715060"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/tests/test_run.py": {
+    "mtime": 1781930326.059043,
+    "ast_hash": "d3f46d8de999a4ea15277e3712a76b05",
+    "semantic_hash": "d3f46d8de999a4ea15277e3712a76b05"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/app/executive/page.tsx": {
+    "mtime": 1782004899.5669339,
+    "ast_hash": "3391692b54a260051342793f600fa656",
+    "semantic_hash": "3391692b54a260051342793f600fa656"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/app/layout.tsx": {
+    "mtime": 1782004899.5672102,
+    "ast_hash": "1ce6cdfbe19cd8383059f2a438ff9cbe",
+    "semantic_hash": "1ce6cdfbe19cd8383059f2a438ff9cbe"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/app/metrics/page.tsx": {
+    "mtime": 1782004899.5674827,
+    "ast_hash": "0e0691d52f1efed6b9321f93a2c71fb9",
+    "semantic_hash": "0e0691d52f1efed6b9321f93a2c71fb9"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/app/page.tsx": {
+    "mtime": 1782004899.5676038,
+    "ast_hash": "5cabbef1479a2370a74a75248e21662a",
+    "semantic_hash": "5cabbef1479a2370a74a75248e21662a"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/components/AppNav.tsx": {
+    "mtime": 1782004899.567791,
+    "ast_hash": "53a361934c18782162612c1b8fcc378a",
+    "semantic_hash": "53a361934c18782162612c1b8fcc378a"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/components/SchemaForm.tsx": {
+    "mtime": 1782004899.5680351,
+    "ast_hash": "507b61cd664061f183cd65c66d5bfab3",
+    "semantic_hash": "507b61cd664061f183cd65c66d5bfab3"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/lib/api.ts": {
+    "mtime": 1782004899.5683656,
+    "ast_hash": "a496881d52c00704ce01cc27563f59d4",
+    "semantic_hash": "a496881d52c00704ce01cc27563f59d4"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/next-env.d.ts": {
+    "mtime": 1782004899.5684493,
+    "ast_hash": "ba64ff7d54714a8f64db89b1003207d8",
+    "semantic_hash": "ba64ff7d54714a8f64db89b1003207d8"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/next.config.ts": {
+    "mtime": 1782004899.5685146,
+    "ast_hash": "daad32b4de0b92afe04301ebf0a6cc76",
+    "semantic_hash": "daad32b4de0b92afe04301ebf0a6cc76"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/package.json": {
+    "mtime": 1782004899.568793,
+    "ast_hash": "e67be16e1f46c97241f26d56e1c0ebdd",
+    "semantic_hash": "e67be16e1f46c97241f26d56e1c0ebdd"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/postcss.config.js": {
+    "mtime": 1782004899.5688608,
+    "ast_hash": "86e9e20e4c60281535291ad9a3b993f6",
+    "semantic_hash": "86e9e20e4c60281535291ad9a3b993f6"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/tailwind.config.ts": {
+    "mtime": 1782004899.5690644,
+    "ast_hash": "a21c0688efd4434235b223923efd981b",
+    "semantic_hash": "a21c0688efd4434235b223923efd981b"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/web/tsconfig.json": {
+    "mtime": 1782004899.5691593,
+    "ast_hash": "03391bd1893b0dcb6f9dd287b3471e66",
+    "semantic_hash": "03391bd1893b0dcb6f9dd287b3471e66"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/PLAN.md": {
+    "mtime": 1781995880.8176131,
+    "ast_hash": "1b5bbe5c727c2f347c44a578ef1f9bb7",
+    "semantic_hash": "1b5bbe5c727c2f347c44a578ef1f9bb7"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/README.md": {
+    "mtime": 1780626725.391175,
+    "ast_hash": "4e4735ef0c0630e61c1f20bd2660b5db",
+    "semantic_hash": "4e4735ef0c0630e61c1f20bd2660b5db"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/api/README.md": {
+    "mtime": 1782003167.9999838,
+    "ast_hash": "31a6eafb9c1e97e4083bd1b4213e8f54",
+    "semantic_hash": "31a6eafb9c1e97e4083bd1b4213e8f54"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/api/requirements.txt": {
+    "mtime": 1782003168.0002725,
+    "ast_hash": "e81d9ee0858227c70a685248ffef51b6",
+    "semantic_hash": "e81d9ee0858227c70a685248ffef51b6"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/conf/README.md": {
+    "mtime": 1780626725.3914807,
+    "ast_hash": "83898276c19891007593da70b5477ac4",
+    "semantic_hash": "83898276c19891007593da70b5477ac4"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/conf/base/catalog.yml": {
+    "mtime": 1781930326.057683,
+    "ast_hash": "4d46778539a8e3093af2fd2ad4d80ab2",
+    "semantic_hash": "4d46778539a8e3093af2fd2ad4d80ab2"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/conf/base/catalog_2015.yml": {
+    "mtime": 1781750311.6795294,
+    "ast_hash": "5c57c877500ad363572da7de85ed4087",
+    "semantic_hash": "5c57c877500ad363572da7de85ed4087"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/conf/base/catalog_nhanes_2013.yml": {
+    "mtime": 1781750323.3125603,
+    "ast_hash": "6ee11140258b071c4858b1563f552efd",
+    "semantic_hash": "6ee11140258b071c4858b1563f552efd"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/conf/base/catalog_serving.yml": {
+    "mtime": 1781931159.8155186,
+    "ast_hash": "8d034e42f38c87e19675b54d94759687",
+    "semantic_hash": "8d034e42f38c87e19675b54d94759687"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/conf/base/parameters.yml": {
+    "mtime": 1780626725.3917603,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/conf/base/parameters_load_db.yml": {
+    "mtime": 1782004899.5650713,
+    "ast_hash": "dc964e0f008f96ee8ba2ab8d47be918e",
+    "semantic_hash": "dc964e0f008f96ee8ba2ab8d47be918e"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/conf/base/parameters_nhanes_2013.yml": {
+    "mtime": 1781750323.3127182,
+    "ast_hash": "cc67c7b7871ebc61880f68bc2bb08cd3",
+    "semantic_hash": "cc67c7b7871ebc61880f68bc2bb08cd3"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/conf/base/parameters_nhanes_2015.yml": {
+    "mtime": 1781750311.6795845,
+    "ast_hash": "2f4d2d8e3c3c98a12169f9ff75635904",
+    "semantic_hash": "2f4d2d8e3c3c98a12169f9ff75635904"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/conf/logging.yml": {
+    "mtime": 1780626725.392022,
+    "ast_hash": "3b2a57732c7ff09d8beccca5d01a8d02",
+    "semantic_hash": "3b2a57732c7ff09d8beccca5d01a8d02"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/reporte_clasificacion_2013.txt": {
+    "mtime": 1781750812.14509,
+    "ast_hash": "61a7b4d3c4dca4f5ef11e8bc6d320544",
+    "semantic_hash": "61a7b4d3c4dca4f5ef11e8bc6d320544"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/reporte_clasificacion_2015.txt": {
+    "mtime": 1782005175.1069844,
+    "ast_hash": "b697f4b1396b1ee408ecfc50e8eafcac",
+    "semantic_hash": "b697f4b1396b1ee408ecfc50e8eafcac"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/reporte_regresion_2013.txt": {
+    "mtime": 1781750915.3182168,
+    "ast_hash": "526c6607ea8e35543a8ea35e8b63dc94",
+    "semantic_hash": "526c6607ea8e35543a8ea35e8b63dc94"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/reporte_regresion_2015.txt": {
+    "mtime": 1782005228.693088,
+    "ast_hash": "c17d280c2235f4f53782f7ffefb30af8",
+    "semantic_hash": "c17d280c2235f4f53782f7ffefb30af8"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/docker-compose.yml": {
+    "mtime": 1782004899.5652816,
+    "ast_hash": "f200533a3c854d57e845bd5108d83be2",
+    "semantic_hash": "f200533a3c854d57e845bd5108d83be2"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/docs/README.md": {
+    "mtime": 1782005772.2680862,
+    "ast_hash": "0683d05f4760f14d81f1af57078b1ffc",
+    "semantic_hash": "0683d05f4760f14d81f1af57078b1ffc"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/docs/api.md": {
+    "mtime": 1782004899.56546,
+    "ast_hash": "8b2d38c1cec6d61eb2c889bb5f7d088c",
+    "semantic_hash": "8b2d38c1cec6d61eb2c889bb5f7d088c"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/docs/arquitectura.md": {
+    "mtime": 1782005817.460669,
+    "ast_hash": "e6b1ef8c44b3737ab5e155b893e3eec9",
+    "semantic_hash": "e6b1ef8c44b3737ab5e155b893e3eec9"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/docs/despliegue.md": {
+    "mtime": 1782005720.058088,
+    "ast_hash": "73c2e12972547e4459c2ff0226db4c44",
+    "semantic_hash": "73c2e12972547e4459c2ff0226db4c44"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/docs/manual_usuario.md": {
+    "mtime": 1782005836.449686,
+    "ast_hash": "d6cf14dbc5fd3934e1fce96d2824ae5d",
+    "semantic_hash": "d6cf14dbc5fd3934e1fce96d2824ae5d"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/docs/modelo.md": {
+    "mtime": 1782005741.4198709,
+    "ast_hash": "e84e0f5f2ca11aed08f9b9b851ee0418",
+    "semantic_hash": "e84e0f5f2ca11aed08f9b9b851ee0418"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/docs/source/index.rst": {
+    "mtime": 1780626725.3933809,
+    "ast_hash": "724830031a55360c0fd5884a8abcef57",
+    "semantic_hash": "724830031a55360c0fd5884a8abcef57"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/requirements.txt": {
+    "mtime": 1781930366.409476,
+    "ast_hash": "4d0939057707de74cec0ae0d6314ffe3",
+    "semantic_hash": "4d0939057707de74cec0ae0d6314ffe3"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/03_cluster_boxplots.png": {
+    "mtime": 1781144781.1481738,
+    "ast_hash": "d0ce52fa6f85ae7c577719e8f472ef0a",
+    "semantic_hash": "d0ce52fa6f85ae7c577719e8f472ef0a"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/03_elbow_silhouette.png": {
+    "mtime": 1781144779.8973682,
+    "ast_hash": "d941a170c7f6fccc7d2fc6191c56dfb8",
+    "semantic_hash": "d941a170c7f6fccc7d2fc6191c56dfb8"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/03_pca_clusters.png": {
+    "mtime": 1781144780.775802,
+    "ast_hash": "d02998b2713f67ac3c73cb411036c3ad",
+    "semantic_hash": "d02998b2713f67ac3c73cb411036c3ad"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/03_pca_scree_plot.png": {
+    "mtime": 1781144775.4211352,
+    "ast_hash": "67e7c212b93ba7012bfa912e2237a18a",
+    "semantic_hash": "67e7c212b93ba7012bfa912e2237a18a"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/04_confusion_matrices.png": {
+    "mtime": 1781144840.2511117,
+    "ast_hash": "f5e715455a96171638b1f9a0562776c4",
+    "semantic_hash": "f5e715455a96171638b1f9a0562776c4"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/04_feature_importance.png": {
+    "mtime": 1781144840.4189615,
+    "ast_hash": "9506b484fe9c8278e25adcdb3b634081",
+    "semantic_hash": "9506b484fe9c8278e25adcdb3b634081"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/04_threshold_tuning_cm.png": {
+    "mtime": 1781144840.5550153,
+    "ast_hash": "3b39862af92e6d3c2f1d3d77cad49004",
+    "semantic_hash": "3b39862af92e6d3c2f1d3d77cad49004"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/04_threshold_tuning_curve.png": {
+    "mtime": 1781144840.6250813,
+    "ast_hash": "b786afece11e9244bd72f229c5670b13",
+    "semantic_hash": "b786afece11e9244bd72f229c5670b13"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/05_edad_real_vs_predicha.png": {
+    "mtime": 1781064329.7947733,
+    "ast_hash": "90539fb586a9fc806ccd9620f4647da4",
+    "semantic_hash": "90539fb586a9fc806ccd9620f4647da4"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/05_feature_importance_regresion.png": {
+    "mtime": 1781064329.9608443,
+    "ast_hash": "881780cff65882da6589bb2adb91d6aa",
+    "semantic_hash": "881780cff65882da6589bb2adb91d6aa"
+  },
+  "/Users/unk/Desktop/ev3-nhanes/ev3_nanhes/data/08_reporting/05_residuos.png": {
+    "mtime": 1781064330.123844,
+    "ast_hash": "c17a297a35fcb74ea03197c7c390adae",
+    "semantic_hash": "c17a297a35fcb74ea03197c7c390adae"
+  }
+}

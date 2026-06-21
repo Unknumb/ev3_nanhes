@@ -38,6 +38,11 @@ def feature_codes() -> list[str]:
     return [f["code"] for f in load_schema()["features"]]
 
 
+def feature_labels() -> dict[str, str]:
+    """Mapa codigo NHANES -> etiqueta legible (para graficos del front)."""
+    return {f["code"]: f["label"] for f in load_schema()["features"]}
+
+
 def _load_pickle(path: Path) -> Any:
     if not path.exists():
         raise FileNotFoundError(
@@ -145,4 +150,47 @@ def explain(features: dict[str, Any], top_n: int = 8) -> dict:
     return {
         "base_value": round(float(explainer.expected_value), 4),
         "contribuciones": contribs,
+    }
+
+
+def _regroup_to_nhanes(trans_name: str) -> str:
+    """'num__BMXBMI' -> 'BMXBMI'; 'cat__RIAGENDR_2.0' -> 'RIAGENDR'."""
+    base = trans_name.split("__", 1)[-1]  # quita prefijo num__/cat__
+    if base not in feature_codes():
+        base = base.rsplit("_", 1)[0]  # quita sufijo de la categoria one-hot
+    return base
+
+
+def global_importance(top_n: int = 10) -> dict:
+    """Importancia GLOBAL de features del clasificador (gain de XGBoost).
+
+    A diferencia de `explain` (SHAP por-paciente), esto es una sola vista del modelo
+    util para el grafico introductorio del front. Reagrupa las columnas one-hot al
+    codigo NHANES de origen y adjunta etiquetas legibles. No requiere SHAP.
+    """
+    clf = get_classifier()
+    prep = clf.named_steps["prep"]
+    model = clf.named_steps["model"]
+
+    importances = model.feature_importances_
+    trans_names = list(prep.get_feature_names_out())
+    labels = feature_labels()
+
+    agg: dict[str, float] = {}
+    for name, val in zip(trans_names, importances):
+        base = _regroup_to_nhanes(name)
+        agg[base] = agg.get(base, 0.0) + float(val)
+
+    total = sum(agg.values()) or 1.0
+    ranked = sorted(agg.items(), key=lambda kv: kv[1], reverse=True)[:top_n]
+    return {
+        "importancias": [
+            {
+                "feature": code,
+                "label": labels.get(code, code),
+                "importance": round(val, 4),
+                "pct": round(val / total * 100, 1),
+            }
+            for code, val in ranked
+        ]
     }

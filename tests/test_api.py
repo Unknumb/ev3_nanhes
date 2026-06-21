@@ -12,13 +12,22 @@ import pickle
 import tempfile
 from pathlib import Path
 
+import pytest
+
+# La API y deps pesadas son opcionales: saltar limpio si faltan (antes de importarlas).
+pytest.importorskip("fastapi")
+pytest.importorskip("httpx")
+pytest.importorskip("xgboost")
+pytest.importorskip("sqlalchemy")
+
+# Apuntar la API a un dir temporal ANTES de importarla (rutas y DATABASE_URL se
+# resuelven en tiempo de import dentro de model_registry/db).
 _TMP_DIR = Path(tempfile.mkdtemp(prefix="ev3_serving_test_"))
 os.environ["MODEL_DIR"] = str(_TMP_DIR)
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DIR / 'test_predictions.db'}"
 
 import numpy as np
 import pandas as pd
-import pytest
 from fastapi.testclient import TestClient
 from sklearn.pipeline import Pipeline as SkPipeline
 from xgboost import XGBClassifier, XGBRegressor
@@ -26,11 +35,6 @@ from xgboost import XGBClassifier, XGBRegressor
 from api import db
 from api.main import app
 from ev3_nhanes.pipelines.nhanes_2015 import nodes as n2015
-
-pytest.importorskip("fastapi")
-pytest.importorskip("httpx")
-pytest.importorskip("xgboost")
-pytest.importorskip("sqlalchemy")
 
 VALID_FEATURES = {
     "RIAGENDR": 1,

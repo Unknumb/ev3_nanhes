@@ -17,6 +17,10 @@ class PredictRequest(BaseModel):
 
     features: dict[str, float | int | None] = Field(default_factory=dict)
     edad_cronologica: float | None = None
+    # Opcionales: el usuario puede dejar su email para recibir el informe y, si marca
+    # `guardar`, asociar la prediccion a ese email para verla luego en /history.
+    email: str | None = None
+    guardar: bool = False
 
 
 class PredictResponse(BaseModel):

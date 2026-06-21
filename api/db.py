@@ -26,9 +26,11 @@ from sqlalchemy import (
     DateTime,
     Float,
     Integer,
+    String,
     cast,
     create_engine,
     func,
+    inspect,
     select,
     text,
 )
@@ -61,6 +63,10 @@ class Prediction(Base):
     edad_cronologica: Mapped[float | None] = mapped_column(Float, nullable=True)
     gap: Mapped[float | None] = mapped_column(Float, nullable=True)
     features: Mapped[dict] = mapped_column(JSON)  # dict crudo de entrada (JSON/JSONB)
+    # Identidad debil opcional: si el usuario deja su email y consiente, puede ver su
+    # historial en /history. El guardado anonimo (email=None) sigue alimentando agregados.
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    consent_save: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 @lru_cache(maxsize=1)
@@ -82,7 +88,35 @@ def _ensure_tables() -> None:
     lru_cache solo memoiza retornos exitosos: si la BD esta caida y create_all
     lanza, no se cachea y se reintenta en la proxima llamada.
     """
-    Base.metadata.create_all(get_engine())
+    engine = get_engine()
+    Base.metadata.create_all(engine)
+    _migrate_columns(engine)
+
+
+def _migrate_columns(engine) -> None:
+    """Migracion ligera: agrega columnas nuevas a tablas preexistentes.
+
+    `create_all` no altera tablas ya creadas. Como no usamos Alembic en este alcance,
+    agregamos `email`/`consent_save` con un ALTER best-effort para no perder el
+    historial existente (SQLite de dev o Postgres del compose).
+    """
+    try:
+        existing = {c["name"] for c in inspect(engine).get_columns("predictions")}
+    except Exception:
+        return  # la tabla aun no existe: create_all ya la dejo al dia
+    nuevas = {
+        "email": "VARCHAR(254)",
+        "consent_save": "BOOLEAN DEFAULT FALSE",
+    }
+    faltantes = {k: v for k, v in nuevas.items() if k not in existing}
+    if not faltantes:
+        return
+    with engine.begin() as conn:
+        for col, ddl in faltantes.items():
+            try:
+                conn.execute(text(f"ALTER TABLE predictions ADD COLUMN {col} {ddl}"))
+            except Exception as exc:  # pragma: no cover
+                logger.warning("No se pudo agregar columna %s: %s", col, exc)
 
 
 def init_db() -> bool:
@@ -105,8 +139,18 @@ def db_ready() -> bool:
         return False
 
 
-def save_prediction(result: dict[str, Any], features: dict[str, Any]) -> bool:
-    """Persiste una prediccion. Best-effort: nunca lanza, devuelve si tuvo exito."""
+def save_prediction(
+    result: dict[str, Any],
+    features: dict[str, Any],
+    email: str | None = None,
+    consent_save: bool = False,
+) -> bool:
+    """Persiste una prediccion. Best-effort: nunca lanza, devuelve si tuvo exito.
+
+    `email`/`consent_save` solo se guardan si el usuario consintio explicitamente
+    (en otro caso se persiste anonima, igual que antes, para los agregados).
+    """
+    guardar_email = email if consent_save else None
     try:
         _ensure_tables()
         with Session(get_engine()) as session:
@@ -118,6 +162,8 @@ def save_prediction(result: dict[str, Any], features: dict[str, Any]) -> bool:
                     edad_cronologica=result.get("edad_cronologica"),
                     gap=result.get("gap"),
                     features=dict(features),
+                    email=guardar_email,
+                    consent_save=bool(consent_save),
                 )
             )
             session.commit()
@@ -125,6 +171,32 @@ def save_prediction(result: dict[str, Any], features: dict[str, Any]) -> bool:
     except Exception as exc:
         logger.warning("No se pudo guardar la prediccion: %s", exc)
         return False
+
+
+def get_history(email: str, limit: int = 50) -> list[dict]:
+    """Predicciones guardadas por un email (solo las que consintieron guardarse)."""
+    _ensure_tables()
+    with Session(get_engine()) as session:
+        filas = list(
+            session.scalars(
+                select(Prediction)
+                .where(Prediction.email == email)
+                .where(Prediction.consent_save.is_(True))
+                .order_by(Prediction.created_at.desc())
+                .limit(limit)
+            ).all()
+        )
+    return [
+        {
+            "created_at": r.created_at.isoformat(),
+            "es_longevo": r.es_longevo,
+            "probabilidad": r.probabilidad,
+            "edad_biologica": r.edad_biologica,
+            "edad_cronologica": r.edad_cronologica,
+            "gap": r.gap,
+        }
+        for r in filas
+    ]
 
 
 def get_aggregates(hist_bins: int = 10) -> dict:
