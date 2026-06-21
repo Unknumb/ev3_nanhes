@@ -1,88 +1,84 @@
 # Guía de despliegue
 
 Tres modos: **desarrollo local**, **Docker** (un servicio) y **docker-compose**
-(api + dashboard, con Supabase como base externa).
+(stack self-contained con Postgres local). La app es **DB-agnostic** (`DATABASE_URL`):
+el compose usa Postgres local; en dev se puede apuntar a Supabase o SQLite.
 
-## Diagrama de despliegue (objetivo)
+## Diagrama de despliegue (docker-compose)
 ```mermaid
 flowchart TB
-    USER["Navegador<br/>:8501"]
+    USER["Navegador<br/>:3000"]
     subgraph HOST["Host · docker-compose"]
-        DASHC["Contenedor dashboard<br/>streamlit :8501"]
-        APIC["Contenedor api<br/>uvicorn :8000<br/>volumen: data/09_serving"]
+        WEB["Contenedor web (Next.js)<br/>:3000 — pendiente web/Dockerfile"]
+        APIC["Contenedor api<br/>uvicorn :8000<br/>volumen ro: data/09_serving"]
+        PG[("Contenedor postgres<br/>:5432 (healthcheck)")]
     end
-    SUPA[("Supabase<br/>Postgres gestionado (TLS)")]
+    SUPA[("Supabase<br/>(alternativa para dev)")]
 
-    USER --> DASHC
-    DASHC -->|"HTTP :8000"| APIC
-    DASHC -->|"GET /aggregates"| APIC
-    APIC -->|"DATABASE_URL"| SUPA
+    USER --> WEB
+    WEB -->|"HTTP :8000 (predict/explain/aggregates)"| APIC
+    APIC -->|"DATABASE_URL"| PG
+    APIC -. "DATABASE_URL alterno" .-> SUPA
 ```
 
 ## Requisitos
-- Python 3.10+ y [`uv`](https://docs.astral.sh/uv/) (o `pip`)
+- Python 3.10+ y [`uv`](https://docs.astral.sh/uv/)
+- Node 20+ (para el frontend Next.js)
 - Docker + docker-compose (para los modos containerizados)
 - Acceso a internet (el ETL descarga datos de la CDC)
-- (Producción) un proyecto Supabase con su connection string
 
-## 0. Preparar el entorno
+## 0. Entrenar el modelo (una vez, requerido)
 ```bash
-uv sync                      # instala dependencias del proyecto
-uv pip install -r api/requirements.txt   # deps del backend (incluye sqlalchemy, psycopg2)
+make train          # = kedro run --pipeline nhanes_2015 + serving
 ```
+Descarga la CDC, entrena (XGBoost + RandomizedSearchCV) y bendice a
+`data/09_serving/` (`model_clasificacion_2015.pkl`, `model_regresion_2015.pkl`,
+`metadata.json`). Ver métricas en [modelo.md](modelo.md).
 
-## 1. Generar el modelo de producción (una vez)
-```bash
-kedro run --pipeline nhanes_2015   # descarga CDC + entrena (lento)
-kedro run --pipeline serving       # bendice a data/09_serving/
-```
-Produce `model_clasificacion_2015.pkl`, `model_regresion_2015.pkl` y `metadata.json`.
+> ⚠️ **Los modelos viven en `data/`, que está en `.gitignore`** — no se commitean.
+> Cada entorno (cada dev, el Docker) debe correr `make train` una vez. El compose
+> monta `./data` como volumen de solo-lectura, así que el host **debe** tener los
+> modelos antes de `make up`.
 
-## 2. Variables de entorno
+## 1. Variables de entorno (`.env`, copiar de `.env.example`)
 | Variable | Default | Uso |
 |---|---|---|
-| `DATABASE_URL` | `sqlite:///data/predictions.db` | Conexión a la base SQL |
+| `DATABASE_URL` | `sqlite:///data/predictions.db` | Conexión SQL (dev: Supabase o SQLite) |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `nhanes` / `nhanes_pass` / `nhanes_db` | Credenciales del Postgres del compose |
+| `CORS_ORIGINS` | `http://localhost:3000,...` | Orígenes permitidos (coma-separados) |
 | `MODEL_DIR` | `data/09_serving` | Carpeta de modelos bendecidos |
-| `FEATURE_SCHEMA_PATH` | `feature_schema.json` | Contrato de features |
-| `EV3_ROOT` | raíz del repo | Raíz para resolver rutas relativas |
 
-Para Supabase (Postgres gestionado):
+Para dev contra **Supabase** (pooler, TLS):
 ```bash
-# usar el connection pooler (puerto 6543, modo transaction) para una API
-export DATABASE_URL="postgresql://postgres:[PASSWORD]@[HOST]:6543/postgres?sslmode=require"
+export DATABASE_URL="postgresql://postgres.[REF]:[PASSWORD]@[HOST]:6543/postgres?sslmode=require"
 ```
-> El driver `psycopg2-binary` ya está en `api/requirements.txt`; SQLAlchemy
-> interpreta `postgresql://` con psycopg2 por defecto.
 
-## 3. Desarrollo local
+## 2. Desarrollo local (sin Docker)
 ```bash
-# Backend
-uvicorn api.main:app --reload          # http://localhost:8000/docs
-# Dashboard (en otra terminal)
-streamlit run dashboards/app.py        # http://localhost:8501
+uv sync                                  # deps Python
+uv pip install -r api/requirements.txt   # deps backend (sqlalchemy, psycopg2, ...)
+make serve                               # uvicorn -> http://localhost:8000/docs
+# Frontend (otra terminal):
+cd web && npm install && npm run dev     # http://localhost:3000
 ```
-Sin `DATABASE_URL`, el backend usa SQLite local automáticamente (las tablas se
-crean al arrancar).
+Sin `DATABASE_URL`, el backend usa SQLite local (las tablas se crean al arrancar).
 
-## 4. Docker (solo backend)
+## 3. Docker (solo backend)
 ```bash
-docker build -f api/Dockerfile -t ev3-api .
-docker run -p 8000:8000 \
-  -v "$PWD/data:/app/data" \
-  -e DATABASE_URL="$DATABASE_URL" \
-  ev3-api
+make build                               # docker build -f api/Dockerfile -t ev3-api .
+docker run -p 8000:8000 -v "$PWD/data:/app/data" -e DATABASE_URL="$DATABASE_URL" ev3-api
 ```
-Los modelos bendecidos se montan como volumen (`-v`); la base es externa (Supabase).
 
-## 5. docker-compose (api + dashboard)
+## 4. docker-compose (stack completo)
 ```bash
-# crea un archivo .env con DATABASE_URL (no se versiona)
-echo 'DATABASE_URL=postgresql://...:6543/postgres?sslmode=require' > .env
-docker-compose up --build
-# api :8000 · dashboard :8501
+cp .env.example .env     # ajustar POSTGRES_* si se quiere
+make up                  # docker compose up --build -d  (postgres + api)
+make logs                # seguir logs
+make down                # bajar
 ```
-Como la base es Supabase (gestionada), **no hay contenedor Postgres**: ambos
-servicios reciben `DATABASE_URL` por entorno desde el `.env`.
+- **postgres** (`:5432`) + **api** (`:8000`) con healthchecks y `depends_on`.
+- El servicio **web** (Next.js, `:3000`) está listo en `docker-compose.yml` pero
+  comentado: se activa cuando exista `web/Dockerfile` (pendiente de Nicolás).
 
 ## Verificación
 ```bash
@@ -93,8 +89,9 @@ curl http://localhost:8000/health
 ## Troubleshooting
 | Síntoma | Causa | Solución |
 |---|---|---|
-| `/health` con `models_ready:false` | Falta bendecir el modelo | `kedro run --pipeline serving` |
-| `/health` con `db_ready:false` | `DATABASE_URL` incorrecta o BD caída | Revisar credenciales / `sslmode=require` |
-| `predict` responde pero no persiste | BD caída (escritura best-effort) | Ver logs `ev3.api.db`; verificar conexión |
+| `/health` con `models_ready:false` | No se entrenó/bendijo | `make train` |
+| `/health` con `db_ready:false` | `DATABASE_URL` incorrecta o BD caída | Revisar credenciales / contenedor `postgres` |
+| `predict` responde pero no persiste | BD caída (escritura best-effort) | Ver logs `ev3.api.db` |
 | Error SSL contra Supabase | Falta TLS | Agregar `?sslmode=require` a la URL |
 | Conexiones agotadas en Supabase | Se usó la conexión directa (5432) | Usar el pooler (6543, transaction) |
+| `docker compose` falla al montar modelos | Falta `make train` en el host | Entrenar antes de `make up` |

@@ -4,7 +4,7 @@
 El sistema cubre el ciclo completo de un proyecto de datos: **ingesta → ETL →
 entrenamiento → serving → API → dashboard**, con persistencia SQL y empaquetado
 en Docker. Se construye como **monorepo** para que el ETL (Kedro), el backend
-(`api/`) y el dashboard (`dashboards/`) compartan un único contrato
+(`api/`) y el frontend (`web/`) compartan un único contrato
 (`feature_schema.json`) y los modelos bendecidos (`data/09_serving/`).
 
 ## Las 3 fuentes de datos
@@ -33,7 +33,7 @@ flowchart TD
 
     SQL[("FUENTE 3<br/>Base SQL · Supabase / Postgres")]
 
-    subgraph DASH["Dashboard · Streamlit (3 audiencias)"]
+    subgraph DASH["Dashboard · Next.js (3 audiencias)"]
         OPER["Operativa: predictor"]
         TECH["Técnica: métricas + SHAP"]
         EXEC["Ejecutiva: KPIs de negocio"]
@@ -67,7 +67,7 @@ flowchart LR
 ```mermaid
 sequenceDiagram
     actor U as Usuario
-    participant D as Dashboard (Streamlit)
+    participant D as Dashboard (Next.js)
     participant A as API (FastAPI)
     participant M as Modelo (Pipeline sklearn)
     participant DB as Supabase (Postgres)
@@ -112,7 +112,7 @@ erDiagram
 | `db.py` | `api/` | `save_prediction` (best-effort) y `get_aggregates` (SQLAlchemy) |
 | `schema.py` | `api/` | Modelos Pydantic + validación contra el contrato |
 | `main.py` | `api/` | App FastAPI y endpoints REST |
-| Dashboard | `dashboards/` | Streamlit con vistas ejecutiva / técnica / operativa |
+| Frontend | `web/` | Next.js (React + Tailwind + Recharts): vistas ejecutiva / técnica / operativa |
 
 ## Decisiones de diseño
 1. **Pickles autocontenidos.** El preprocesamiento (imputación, escalado, one-hot)
@@ -133,6 +133,6 @@ erDiagram
 ## Stack
 - **ETL/ML:** Kedro 1.4, pandas, scikit-learn, XGBoost, SHAP
 - **Backend:** FastAPI, Pydantic, SQLAlchemy 2.0, uvicorn
-- **Frontend:** Streamlit
+- **Frontend:** Next.js + React + Tailwind + Recharts
 - **Datos:** Supabase (Postgres) · SQLite (dev)
 - **Infra:** Docker, docker-compose · gestión de dependencias con `uv`
