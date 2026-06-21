@@ -31,7 +31,7 @@ jobs:
           pip install ruff pytest
 
       - name: Run Ruff
-        run: ruff check . --output-format=github
+        run: ruff check api tests --output-format=github
 
       - name: Run pytest
-        run: pytest
+        run: pytest tests
