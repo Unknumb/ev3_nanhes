@@ -29,11 +29,26 @@ docker run -v "$PWD/data:/app/data" -p 8000:8000 ev3-api
 ## Endpoints
 | Método | Ruta | Qué hace |
 |---|---|---|
-| GET | `/health` | liveness + `models_ready` |
+| GET | `/health` | liveness + `models_ready` + `db_ready` |
 | GET | `/schema` | `feature_schema.json` (el front renderiza el form desde aquí) |
-| POST | `/predict` | `es_longevo`, `probabilidad`, `edad_biologica`, `gap` |
+| POST | `/predict` | `es_longevo`, `probabilidad`, `edad_biologica`, `gap` (persiste en BD) |
 | POST | `/explain` | contribuciones SHAP por feature |
 | GET | `/metrics` | reportes de entrenamiento (accuracy / MAE) |
+| GET | `/aggregates` | agregados del historial (totales, % longevos, distribución edad biológica) para el dashboard ejecutivo |
+
+## Base de datos (3ª fuente)
+Cada `/predict` se guarda en una BD SQL. Se configura con la variable de entorno
+`DATABASE_URL`:
+
+```bash
+# Postgres gestionado (Supabase) — lo provee Nicolás
+export DATABASE_URL="postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres"
+
+# Fallback de desarrollo local (por defecto, sin infra): SQLite
+# DATABASE_URL no seteada -> sqlite:///data/predictions.db
+```
+La escritura es **best-effort**: si la BD está caída, `/predict` igual responde
+(solo se pierde el registro en el historial). Las tablas se crean solas al arrancar.
 
 ### Ejemplo `/predict`
 ```bash
