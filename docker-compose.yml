@@ -50,25 +50,22 @@ services:
     restart: unless-stopped
 
   # ── Frontend (Next.js de Juan) ──────────────────────────────────────────────
-  # PENDIENTE (Nicolás): descomentar cuando el PR de feature/web-frontend (web/)
-  # se mergee a fullstack-mvp y exista web/Dockerfile. Reemplaza al placeholder
-  # Streamlit que se descartó (decisión: el front es Next.js).
-  # NOTA: NEXT_PUBLIC_API_URL apunta a localhost:8000 porque la request la hace el
-  # navegador del host (no el contenedor); por eso también el CORS de la API
-  # permite localhost:3000.
-  # web:
-  #   build:
-  #     context: ./web
-  #     dockerfile: Dockerfile
-  #   container_name: nhanes_web
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     NEXT_PUBLIC_API_URL: http://localhost:8000
-  #   depends_on:
-  #     api:
-  #       condition: service_healthy
-  #   restart: unless-stopped
+  # NEXT_PUBLIC_API_URL va como build ARG (se hornea en build) y apunta a
+  # localhost:8000 porque la request la hace el navegador del host, no el
+  # contenedor. El CORS de la API ya permite localhost:3000.
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    container_name: nhanes_web
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:
