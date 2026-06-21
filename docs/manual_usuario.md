@@ -1,15 +1,16 @@
 # Manual de usuario — Dashboard
 
-El dashboard (Streamlit) permite estimar la **probabilidad de longevidad** y la
+El dashboard (Next.js) permite estimar la **probabilidad de longevidad** y la
 **edad biológica** a partir de biomarcadores, y explorar los resultados según tu
-rol. Se organiza en **tres vistas por audiencia**.
+rol. Se organiza en **tres vistas por audiencia** (navegación entre `/`, `/metrics`
+y `/executive`).
 
 > ⚠️ **Aviso.** Proyecto académico/educativo. Las estimaciones provienen de un
 > modelo entrenado sobre datos poblacionales NHANES y **no constituyen consejo
 > médico** ni diagnóstico.
 
 ## Acceso
-- **URL local:** `http://localhost:8501`
+- **URL local:** `http://localhost:3000`
 - Requiere que el backend esté corriendo (`http://localhost:8000`). Si el dashboard
   muestra "modelos no disponibles", ver la [guía de despliegue](despliegue.md).
 
