@@ -14,6 +14,7 @@ Ejecutar desde la raiz del repo:
 
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -25,6 +26,8 @@ from . import db
 from . import model_registry as registry
 from .schema import PredictRequest, PredictResponse, validate_features
 
+logger = logging.getLogger("ev3.api")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,7 +35,7 @@ async def lifespan(app: FastAPI):
     try:
         registry.load_models()
     except Exception as exc:
-        print(f"No se pudieron cargar los modelos al iniciar la API: {exc}")
+        logger.warning("No se pudieron cargar los modelos al iniciar la API: %s", exc)
     yield
 
 

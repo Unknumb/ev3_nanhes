@@ -101,7 +101,9 @@ select = [
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["PLR2004"]
+# Tests: fijan env vars antes de importar la API (E402), comparan contra códigos
+# HTTP literales (PLR2004) y usan imports locales en fixtures (PLC0415).
+"tests/**" = ["E402", "PLR2004", "PLC0415"]
 "notebooks/*" = ["T201", "I001", "F401", "F541", "W293", "W291", "E741", "E401", "PLR2004"]
 
 [tool.kedro_telemetry]
