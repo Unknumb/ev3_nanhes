@@ -1,4 +1,0 @@
-load_db:
-  table_name: "nhanes_processed"
-  if_exists: "replace"
-  schema: null
