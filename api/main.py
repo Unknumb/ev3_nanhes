@@ -14,6 +14,7 @@ Ejecutar desde la raiz del repo:
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -38,10 +39,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Front local (Next.js) en desarrollo.
+# Origenes permitidos configurables por entorno (front Next.js / docker-compose).
+_raw_origins = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000",
+)
+ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

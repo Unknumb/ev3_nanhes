@@ -1,0 +1,79 @@
+# Stack del demo self-contained: Postgres local + API.
+# La app es DB-agnostic (DATABASE_URL): este compose usa Postgres local; para dev
+# se puede apuntar a Supabase. Modelos: correr `make train` antes (data/09_serving).
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nhanes_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nhanes}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nhanes_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-nhanes_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nhanes} -d ${POSTGRES_DB:-nhanes_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: nhanes_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data:ro
+      - ./feature_schema.json:/app/feature_schema.json:ro
+    environment:
+      PYTHONUNBUFFERED: "1"
+      EV3_ROOT: /app
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nhanes}:${POSTGRES_PASSWORD:-nhanes_pass}@postgres:5432/${POSTGRES_DB:-nhanes_db}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ── Frontend (Next.js de Juan) ──────────────────────────────────────────────
+  # PENDIENTE (Nicolás): descomentar cuando el PR de feature/web-frontend (web/)
+  # se mergee a fullstack-mvp y exista web/Dockerfile. Reemplaza al placeholder
+  # Streamlit que se descartó (decisión: el front es Next.js).
+  # NOTA: NEXT_PUBLIC_API_URL apunta a localhost:8000 porque la request la hace el
+  # navegador del host (no el contenedor); por eso también el CORS de la API
+  # permite localhost:3000.
+  # web:
+  #   build:
+  #     context: ./web
+  #     dockerfile: Dockerfile
+  #   container_name: nhanes_web
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     NEXT_PUBLIC_API_URL: http://localhost:8000
+  #   depends_on:
+  #     api:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: nhanes_postgres_data
+
+networks:
+  default:
+    name: nhanes_network
