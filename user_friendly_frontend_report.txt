@@ -1,0 +1,78 @@
+User friendly frontend report
+=============================
+
+Archivos modificados
+--------------------
+- web/components/SchemaForm.tsx
+
+Labels agregados
+----------------
+Se agregó un diccionario frontend de textos amigables para estos códigos:
+
+- edad_cronologica -> Edad cronológica
+- RIAGENDR -> Sexo
+- RIDRETH3 -> Raza / origen
+- DMDEDUC2 -> Nivel educativo
+- DMDMARTL -> Estado civil
+- DMDHHSIZ -> Personas en el hogar
+- DMDFMSIZ -> Personas en la familia
+- INDFMPIR -> Índice ingreso-pobreza
+- BMXWT -> Peso
+- BMXHT -> Estatura
+- BMXBMI -> IMC
+- BMXWAIST -> Cintura
+- BMXLEG -> Largo de pierna
+- BMXARML -> Largo de brazo
+- BMXARMC -> Circunferencia de brazo
+- BPXSY1 -> Presión sistólica
+- BPXDI1 -> Presión diastólica
+- BPXSY2 -> Presión sistólica 2
+- BPXDI2 -> Presión diastólica 2
+- BPXSY3 -> Presión sistólica 3
+- BPXDI3 -> Presión diastólica 3
+- BPXPLS -> Pulso
+- LBXTC -> Colesterol total
+- LBXGLU -> Glucosa
+
+Cambios visuales
+----------------
+- Se ocultaron los códigos NHANES visibles en cada campo del formulario.
+- Los códigos se siguen usando internamente como name/code para construir el payload.
+- Se agregó ayuda breve bajo cada campo con significado, ejemplo y unidad cuando aplica.
+- Las secciones del schema ahora se muestran con nombres más humanos:
+  - Demografia -> Datos personales
+  - Antropometria -> Medidas corporales
+  - Presion arterial -> Presión arterial
+  - Laboratorio -> Laboratorio
+  - Socioeconomico -> Socioeconómico
+- El bloque de edad cronológica ahora aparece como "Edad de referencia".
+- El mensaje 503 ahora dice:
+  "La predicción está temporalmente desactivada. Intenta nuevamente cuando el equipo active los modelos."
+- La explicación SHAP quedó colapsable bajo "Ver explicación técnica".
+- El JSON técnico se mantiene colapsable bajo "Ver JSON técnico".
+- Se agregó aviso bajo el resultado:
+  "Este resultado es una estimación generada por un modelo académico. No reemplaza una evaluación médica."
+
+Resultado de build
+------------------
+Comando ejecutado:
+
+cd web
+npm.cmd run build
+
+Resultado:
+- Build exitoso.
+- Rutas generadas correctamente:
+  - /
+  - /metrics
+  - /executive
+
+Confirmación de contratos
+-------------------------
+- No se modificó backend.
+- No se modificó Kedro.
+- No se modificaron contratos de /schema, /predict, /explain, /metrics ni /aggregates.
+- El formulario sigue construyéndose dinámicamente desde /schema.
+- Los labels y ayudas son una capa frontend sobre los códigos existentes.
+- No se hizo commit.
+- No se hizo push.

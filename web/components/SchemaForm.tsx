@@ -75,6 +75,195 @@ type SchemaState =
   | { status: "loaded"; data: FeatureSchema; error: null }
   | { status: "error"; data: null; error: string };
 
+type FieldCopy = {
+  label: string;
+  help: string;
+  example?: string;
+  unit?: string;
+};
+
+const FIELD_COPY: Record<string, FieldCopy> = {
+  edad_cronologica: {
+    label: "Edad cronológica",
+    help: "Tu edad actual. Se usa solo para comparar con la edad biológica estimada.",
+    example: "Ejemplo: 45",
+    unit: "años"
+  },
+  RIAGENDR: {
+    label: "Sexo",
+    help: "Sexo registrado para la evaluación.",
+    example: "Ejemplo: mujer"
+  },
+  RIDRETH3: {
+    label: "Raza / origen",
+    help: "Categoría demográfica usada por el modelo para comparar perfiles poblacionales.",
+    example: "Ejemplo: hispano, blanco no hispano u otra categoría disponible"
+  },
+  DMDEDUC2: {
+    label: "Nivel educativo",
+    help: "Mayor nivel educativo reportado. Puedes dejarlo vacío si no lo conoces.",
+    example: "Ejemplo: educación superior"
+  },
+  DMDMARTL: {
+    label: "Estado civil",
+    help: "Situación civil reportada. Es opcional.",
+    example: "Ejemplo: casado/a"
+  },
+  DMDHHSIZ: {
+    label: "Personas en el hogar",
+    help: "Cantidad de personas que viven en el mismo hogar.",
+    example: "Ejemplo: 3",
+    unit: "personas"
+  },
+  DMDFMSIZ: {
+    label: "Personas en la familia",
+    help: "Cantidad de integrantes del grupo familiar.",
+    example: "Ejemplo: 4",
+    unit: "personas"
+  },
+  INDFMPIR: {
+    label: "Índice ingreso-pobreza",
+    help: "Relación aproximada entre ingreso familiar y umbral de pobreza. Déjalo vacío si no lo tienes.",
+    example: "Ejemplo: 2.5",
+    unit: "ratio"
+  },
+  BMXWT: {
+    label: "Peso",
+    help: "Peso corporal medido o estimado recientemente.",
+    example: "Ejemplo: 72",
+    unit: "kg"
+  },
+  BMXHT: {
+    label: "Estatura",
+    help: "Altura de la persona.",
+    example: "Ejemplo: 170",
+    unit: "cm"
+  },
+  BMXBMI: {
+    label: "IMC",
+    help: "Índice de masa corporal. Si no lo sabes, se calcula como peso / estatura².",
+    example: "Ejemplo: 24.9",
+    unit: "kg/m2"
+  },
+  BMXWAIST: {
+    label: "Cintura",
+    help: "Circunferencia de cintura medida a la altura del abdomen.",
+    example: "Ejemplo: 88",
+    unit: "cm"
+  },
+  BMXLEG: {
+    label: "Largo de pierna",
+    help: "Medida corporal opcional de pierna.",
+    example: "Ejemplo: 42",
+    unit: "cm"
+  },
+  BMXARML: {
+    label: "Largo de brazo",
+    help: "Medida corporal opcional de brazo.",
+    example: "Ejemplo: 38",
+    unit: "cm"
+  },
+  BMXARMC: {
+    label: "Circunferencia de brazo",
+    help: "Medida opcional alrededor del brazo.",
+    example: "Ejemplo: 31",
+    unit: "cm"
+  },
+  BPXSY1: {
+    label: "Presión sistólica",
+    help: "Número mayor de la presión arterial, habitualmente mostrado arriba.",
+    example: "Ejemplo: 120",
+    unit: "mmHg"
+  },
+  BPXDI1: {
+    label: "Presión diastólica",
+    help: "Número menor de la presión arterial, habitualmente mostrado abajo.",
+    example: "Ejemplo: 80",
+    unit: "mmHg"
+  },
+  BPXSY2: {
+    label: "Presión sistólica 2",
+    help: "Segunda medición de presión sistólica, si la tienes.",
+    example: "Ejemplo: 118",
+    unit: "mmHg"
+  },
+  BPXDI2: {
+    label: "Presión diastólica 2",
+    help: "Segunda medición de presión diastólica, si la tienes.",
+    example: "Ejemplo: 78",
+    unit: "mmHg"
+  },
+  BPXSY3: {
+    label: "Presión sistólica 3",
+    help: "Tercera medición de presión sistólica, si la tienes.",
+    example: "Ejemplo: 119",
+    unit: "mmHg"
+  },
+  BPXDI3: {
+    label: "Presión diastólica 3",
+    help: "Tercera medición de presión diastólica, si la tienes.",
+    example: "Ejemplo: 79",
+    unit: "mmHg"
+  },
+  BPXPLS: {
+    label: "Pulso",
+    help: "Frecuencia cardíaca medida en reposo durante un minuto.",
+    example: "Ejemplo: 72",
+    unit: "lpm"
+  },
+  LBXTC: {
+    label: "Colesterol total",
+    help: "Resultado de laboratorio de colesterol total.",
+    example: "Ejemplo: 190",
+    unit: "mg/dL"
+  },
+  LBXGLU: {
+    label: "Glucosa",
+    help: "Resultado de laboratorio de glucosa en sangre.",
+    example: "Ejemplo: 95",
+    unit: "mg/dL"
+  }
+};
+
+const GROUP_LABELS: Record<string, string> = {
+  Antropometria: "Medidas corporales",
+  Demografia: "Datos personales",
+  Laboratorio: "Laboratorio",
+  "Presion arterial": "Presión arterial",
+  Socioeconomico: "Socioeconómico"
+};
+
+function getFieldCopy(field: SchemaField) {
+  return FIELD_COPY[field.code];
+}
+
+function getFieldLabel(field: SchemaField) {
+  return getFieldCopy(field)?.label ?? field.label;
+}
+
+function getFieldUnit(field: SchemaField) {
+  return getFieldCopy(field)?.unit ?? field.unit;
+}
+
+function getFieldHelp(field: SchemaField) {
+  const copy = getFieldCopy(field);
+  const parts = [
+    copy?.help,
+    copy?.example,
+    getFieldUnit(field) ? `Unidad: ${getFieldUnit(field)}` : undefined
+  ].filter(Boolean);
+
+  if (parts.length > 0) {
+    return parts.join(" ");
+  }
+
+  return field.note ?? "Completa este dato si lo tienes disponible.";
+}
+
+function getSectionLabel(groupName: string) {
+  return GROUP_LABELS[groupName] ?? groupName;
+}
+
 function normalizeExtraInputs(
   extraInputs: FeatureSchema["extra_inputs"]
 ): SchemaField[] {
@@ -292,6 +481,11 @@ function ResultSummary({ result }: { result: PredictResult }) {
           />
         </div>
       </div>
+
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+        Este resultado es una estimación generada por un modelo académico. No
+        reemplaza una evaluación médica.
+      </div>
     </section>
   );
 }
@@ -305,7 +499,11 @@ function ShapBars({ explainResult }: { explainResult: ExplainResult }) {
   );
 
   return (
-    <section className="grid gap-5 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
+    <details className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+      <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+        Ver explicación técnica
+      </summary>
+      <div className="mt-5 grid gap-5">
       <div>
           <p className="text-sm font-medium uppercase tracking-wide text-slate-500">
             SHAP
@@ -361,7 +559,8 @@ function ShapBars({ explainResult }: { explainResult: ExplainResult }) {
           );
         })}
       </div>
-    </section>
+      </div>
+    </details>
   );
 }
 
@@ -425,6 +624,9 @@ function FieldControl({
   field: SchemaField;
 }) {
   const fieldId = `field-${field.code}`;
+  const fieldLabel = getFieldLabel(field);
+  const fieldHelp = getFieldHelp(field);
+  const fieldUnit = getFieldUnit(field);
 
   return (
     <label
@@ -434,15 +636,12 @@ function FieldControl({
       <span className="flex items-start justify-between gap-3">
         <span>
           <span className="block text-sm font-medium text-slate-950">
-            {field.label}
+            {fieldLabel}
           </span>
-          <span className="mt-1 block text-xs text-slate-500">{field.code}</span>
         </span>
-        {!field.required && (
-          <span className="shrink-0 text-xs font-medium text-slate-500">
-            Opcional
-          </span>
-        )}
+        <span className="shrink-0 text-xs font-medium text-slate-500">
+          {field.required ? "Requerido" : "Opcional"}
+        </span>
       </span>
 
       {field.type === "numeric" ? (
@@ -454,15 +653,16 @@ function FieldControl({
             min={field.min}
             name={field.code}
             placeholder={
-              field.min !== undefined && field.max !== undefined
+              getFieldCopy(field)?.example?.replace("Ejemplo: ", "") ??
+              (field.min !== undefined && field.max !== undefined
                 ? `${field.min} - ${field.max}`
-                : undefined
+                : undefined)
             }
             required={field.required}
             type="number"
           />
-          {field.unit && (
-            <span className="min-w-14 text-sm text-slate-600">{field.unit}</span>
+          {fieldUnit && (
+            <span className="min-w-14 text-sm text-slate-600">{fieldUnit}</span>
           )}
         </div>
       ) : (
@@ -481,7 +681,7 @@ function FieldControl({
         </select>
       )}
 
-      {field.note && <span className="text-xs text-slate-500">{field.note}</span>}
+      <span className="text-xs leading-5 text-slate-500">{fieldHelp}</span>
       {error && <span className="text-xs font-medium text-red-700">{error}</span>}
     </label>
   );
@@ -596,7 +796,9 @@ export function SchemaForm() {
         }
 
         if (response.status === 503) {
-          throw new Error("Modelo no disponible actualmente");
+          throw new Error(
+            "La predicción está temporalmente desactivada. Intenta nuevamente cuando el equipo active los modelos."
+          );
         }
 
         throw new Error(
@@ -680,7 +882,9 @@ export function SchemaForm() {
     <form className="grid gap-8" onSubmit={handleSubmit}>
       {edadCronologica && (
         <section className="grid gap-4">
-          <h2 className="text-xl font-semibold text-slate-950">Referencia</h2>
+          <h2 className="text-xl font-semibold text-slate-950">
+            Edad de referencia
+          </h2>
           <div className="grid gap-4 md:grid-cols-2">
             <FieldControl
               error={fieldErrors[edadCronologica.code]}
@@ -692,7 +896,9 @@ export function SchemaForm() {
 
       {Object.entries(featureGroups).map(([groupName, fields]) => (
         <section className="grid gap-4" key={groupName}>
-          <h2 className="text-xl font-semibold text-slate-950">{groupName}</h2>
+          <h2 className="text-xl font-semibold text-slate-950">
+            {getSectionLabel(groupName)}
+          </h2>
           <div className="grid gap-4 md:grid-cols-2">
             {fields.map((field) => (
               <FieldControl
