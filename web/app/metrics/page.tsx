@@ -77,7 +77,7 @@ export default function MetricsPage() {
         const response = await fetch(METRICS_URL);
 
         if (!response.ok) {
-          throw new Error(`GET /metrics respondio ${response.status}`);
+          throw new Error(`La API respondió ${response.status} al cargar las métricas`);
         }
 
         const metrics = (await response.json()) as MetricsResponse;
@@ -93,7 +93,7 @@ export default function MetricsPage() {
             error:
               error instanceof Error
                 ? error.message
-                : "No se pudieron cargar las metricas"
+                : "No se pudieron cargar las métricas"
           });
         }
       }
@@ -126,22 +126,21 @@ export default function MetricsPage() {
             NHANES Longevity
           </p>
           <h1 className="text-4xl font-semibold leading-tight sm:text-5xl">
-            Metricas del modelo
+            Métricas del modelo
           </h1>
         </div>
 
         {metricsState.status === "loading" && (
           <div className="rounded-md border border-slate-200 bg-white p-6 text-sm text-slate-600">
-            loading metrics
+            Cargando métricas...
           </div>
         )}
 
         {metricsState.status === "error" && (
           <div className="rounded-md border border-red-200 bg-red-50 p-6 text-sm text-red-800">
-            <p className="font-medium">metrics error</p>
+            <p className="font-medium">No se pudieron cargar las métricas</p>
             <p className="mt-2">
-              No se pudieron cargar las metricas. Revisa que la API este
-              disponible en {METRICS_URL}.
+              Revisa que la API esté disponible en {METRICS_URL}.
             </p>
             <p className="mt-2 text-xs">{metricsState.error}</p>
           </div>
@@ -149,10 +148,6 @@ export default function MetricsPage() {
 
         {metricsState.status === "success" && (
           <div className="grid gap-6">
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
-              metrics success
-            </div>
-
             {parsedReports.map(({ metrics, reportName, reportText }) => (
               <section
                 className="grid gap-4 rounded-md border border-slate-200 bg-white p-5"
@@ -180,7 +175,7 @@ export default function MetricsPage() {
                   </div>
                 ) : (
                   <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                    No se detectaron metricas numericas estructuradas en este
+                    No se detectaron métricas numéricas estructuradas en este
                     reporte.
                   </div>
                 )}

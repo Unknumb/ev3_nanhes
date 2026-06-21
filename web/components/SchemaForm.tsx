@@ -160,7 +160,7 @@ function formatYears(value: number | null | undefined) {
     return "No disponible";
   }
 
-  return `${Math.round(value)} anos`;
+  return `${Math.round(value)} años`;
 }
 
 function formatGap(value: number | null | undefined) {
@@ -171,7 +171,7 @@ function formatGap(value: number | null | undefined) {
   const rounded = Math.round(value * 10) / 10;
   const sign = rounded > 0 ? "+" : "";
 
-  return `${sign}${rounded} anos`;
+  return `${sign}${rounded} años`;
 }
 
 function getProbabilityPercent(probability: number) {
@@ -215,10 +215,10 @@ function getGapLabel(gap: number | null) {
   }
 
   if (gap < 0) {
-    return "Envejecimiento menor al cronologico";
+    return "Envejecimiento menor al cronológico";
   }
 
-  return "Edad biologica alineada";
+  return "Edad biológica alineada";
 }
 
 function ResultSummary({ result }: { result: PredictResult }) {
@@ -236,7 +236,7 @@ function ResultSummary({ result }: { result: PredictResult }) {
             Resultado
           </p>
           <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-            Evaluacion de longevidad
+            Evaluación de longevidad
           </h2>
         </div>
         <span
@@ -248,13 +248,13 @@ function ResultSummary({ result }: { result: PredictResult }) {
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm text-slate-500">Edad cronologica</p>
+          <p className="text-sm text-slate-500">Edad cronológica</p>
           <p className="mt-2 text-2xl font-semibold text-slate-950">
             {formatYears(result.edad_cronologica)}
           </p>
         </div>
         <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm text-slate-500">Edad biologica</p>
+          <p className="text-sm text-slate-500">Edad biológica</p>
           <p className="mt-2 text-2xl font-semibold text-slate-950">
             {formatYears(result.edad_biologica)}
           </p>
@@ -301,11 +301,11 @@ function ShapBars({ explainResult }: { explainResult: ExplainResult }) {
   return (
     <section className="grid gap-5 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-slate-500">
-          SHAP
-        </p>
+          <p className="text-sm font-medium uppercase tracking-wide text-slate-500">
+            SHAP
+          </p>
         <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-          Factores que mas influyen
+          Factores que más influyen
         </h2>
       </div>
 
@@ -371,7 +371,7 @@ function TechnicalJson({
   return (
     <details className="rounded-md border border-slate-200 bg-white p-5">
       <summary className="cursor-pointer text-sm font-semibold text-slate-700">
-        Ver JSON tecnico
+        Ver JSON técnico
       </summary>
       <div className="mt-4 grid gap-4">
         {lastPayload && (
@@ -508,7 +508,7 @@ export function SchemaForm() {
         const response = await fetch(SCHEMA_URL);
 
         if (!response.ok) {
-          throw new Error(`GET /schema respondio ${response.status}`);
+          throw new Error(`La API respondió ${response.status} al cargar el formulario`);
         }
 
         const schema = (await response.json()) as FeatureSchema;
@@ -524,7 +524,7 @@ export function SchemaForm() {
             error:
               error instanceof Error
                 ? error.message
-                : "No se pudo cargar el schema"
+                : "No se pudo cargar el formulario"
           });
         }
       }
@@ -596,18 +596,18 @@ export function SchemaForm() {
         throw new Error(
           responseBody?.detail
             ? String(responseBody.detail)
-            : `POST /predict respondio ${response.status}`
+            : `La API respondió ${response.status} al calcular la predicción`
         );
       }
 
       setPredictResult(responseBody as PredictResult);
       setSubmitState({
         status: "success",
-        message: "Prediccion recibida correctamente"
+        message: "Predicción recibida correctamente"
       });
       setExplainState({
         status: "loading",
-        message: "loading explain"
+        message: "Cargando explicación SHAP"
       });
 
       try {
@@ -624,14 +624,14 @@ export function SchemaForm() {
           throw new Error(
             explainBody?.detail
               ? String(explainBody.detail)
-              : `POST /explain respondio ${explainResponse.status}`
+              : `La API respondió ${explainResponse.status} al cargar la explicación`
           );
         }
 
         setExplainResult(explainBody as ExplainResult);
         setExplainState({
           status: "success",
-          message: "explain success"
+          message: "Explicación cargada"
         });
       } catch (error) {
         setExplainState({
@@ -639,7 +639,7 @@ export function SchemaForm() {
           message:
             error instanceof Error
               ? error.message
-              : "No se pudo cargar explain"
+              : "No se pudo cargar la explicación"
         });
       }
     } catch (error) {
@@ -656,7 +656,7 @@ export function SchemaForm() {
   if (schemaState.status === "loading") {
     return (
       <div className="rounded-md border border-slate-200 bg-white p-6 text-sm text-slate-600">
-        loading schema
+        Cargando formulario...
       </div>
     );
   }
@@ -664,18 +664,14 @@ export function SchemaForm() {
   if (schemaState.status === "error") {
     return (
       <div className="rounded-md border border-red-200 bg-red-50 p-6 text-sm text-red-800">
-        <p className="font-medium">schema error</p>
-        <p className="mt-2">{schemaState.error}</p>
+        <p className="font-medium">No se pudo cargar el formulario</p>
+        <p className="mt-2 text-xs">{schemaState.error}</p>
       </div>
     );
   }
 
   return (
     <form className="grid gap-8" onSubmit={handleSubmit}>
-      <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
-        Schema cargado correctamente
-      </div>
-
       {edadCronologica && (
         <section className="grid gap-4">
           <h2 className="text-xl font-semibold text-slate-950">Referencia</h2>
@@ -709,7 +705,7 @@ export function SchemaForm() {
           disabled={submitState.status === "submitting"}
           type="submit"
         >
-          {submitState.status === "submitting" ? "Enviando..." : "Enviar a predict"}
+          {submitState.status === "submitting" ? "Enviando..." : "Calcular predicción"}
         </button>
 
         {submitState.status === "success" && (
@@ -731,13 +727,13 @@ export function SchemaForm() {
 
           {explainState.status === "loading" && (
             <div className="rounded-md border border-slate-200 bg-white p-5 text-sm text-slate-700">
-              Cargando explicacion SHAP...
+              Cargando explicación SHAP...
             </div>
           )}
 
           {explainState.status === "error" && (
             <div className="rounded-md border border-amber-200 bg-amber-50 p-5 text-sm font-medium text-amber-900">
-              No se pudo cargar la explicacion SHAP: {explainState.message}
+              No se pudo cargar la explicación SHAP: {explainState.message}
             </div>
           )}
 

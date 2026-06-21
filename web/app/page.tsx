@@ -12,7 +12,7 @@ export default function Home() {
             Predictor de Longevidad
           </h1>
           <p className="mt-4 text-lg leading-8 text-slate-700">
-            Frontend inicial conectado a la API
+            Formulario operativo conectado a la API
           </p>
         </div>
         <SchemaForm />

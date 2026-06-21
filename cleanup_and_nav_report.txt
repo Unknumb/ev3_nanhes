@@ -1,0 +1,124 @@
+Cleanup and nav report
+======================
+
+Fecha: 2026-06-20
+Rama: feature/web-frontend
+
+Alcance
+-------
+Se realizo limpieza y preparacion del frontend.
+
+No se implemento:
+- GET /aggregates
+- vistas nuevas con datos reales
+- cambios de backend
+- cambios de Kedro
+
+Archivos eliminados de la raiz
+------------------------------
+Se eliminaron estos reportes temporales si existian:
+- ui_final_report.txt
+- explain_integration_report.txt
+- predict_integration_report.txt
+- schema_form_report.txt
+- metrics_page_report.txt
+- frontend_acceptance_report.txt
+
+No se eliminaron reportes dentro de data/.
+
+Nota:
+- git_history_explain_report.txt permanece porque no estaba en la lista solicitada.
+- requirements.txt permanece porque es parte del proyecto.
+
+Archivos creados
+----------------
+- web/components/AppNav.tsx
+- web/app/executive/page.tsx
+- cleanup_and_nav_report.txt
+
+Archivos modificados
+--------------------
+- web/app/layout.tsx
+- web/app/page.tsx
+- web/app/metrics/page.tsx
+- web/components/SchemaForm.tsx
+- web/package.json
+- web/package-lock.json
+
+Dependencias agregadas
+----------------------
+- recharts: ^3.8.1
+
+Comando ejecutado:
+cd web
+npm.cmd install recharts
+
+Nota npm:
+- npm reporto 2 vulnerabilidades moderadas existentes en el arbol de dependencias.
+- No se ejecuto npm audit fix --force para evitar cambios de versiones fuera del alcance.
+
+Limpieza visual realizada
+-------------------------
+Se quitaron banners/debug visibles:
+- "Schema cargado correctamente"
+- "metrics success"
+- "loading schema"
+- "loading metrics"
+- textos tecnicos similares en estados visibles
+
+Se mantuvieron errores reales visibles:
+- error al cargar formulario
+- error al enviar prediccion
+- error de modelo no disponible
+- error al cargar explicacion SHAP
+- error al cargar metricas
+
+Correccion de textos visibles
+-----------------------------
+Se actualizaron textos visibles con tildes donde correspondia:
+- años
+- biológica
+- cronológica
+- predicción
+- métricas
+- evaluación
+- explicación
+- técnico
+- más
+
+Navegacion creada
+-----------------
+Se agrego una navegacion simple global en web/components/AppNav.tsx e integrada en web/app/layout.tsx.
+
+Rutas disponibles:
+- Operativa: /
+- Técnica/Métricas: /metrics
+- Ejecutiva: /executive
+
+Placeholder ejecutivo
+---------------------
+Se creo web/app/executive/page.tsx con el mensaje:
+
+"Vista ejecutiva pendiente de GET /aggregates"
+
+No consume GET /aggregates.
+
+Resultado de build
+------------------
+Comando ejecutado:
+cd web
+npm.cmd run build
+
+Resultado:
+- Build exitoso.
+- Next.js compilo correctamente.
+- TypeScript paso correctamente.
+
+Rutas detectadas por Next.js:
+- /
+- /metrics
+- /executive
+
+Estado final esperado
+---------------------
+El frontend queda preparado para continuar con la futura vista ejecutiva y graficos con Recharts, sin consumir todavia /aggregates.
