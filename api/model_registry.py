@@ -9,18 +9,22 @@ from __future__ import annotations
 
 import json
 import os
+import pickle
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
+import shap
 
-# Rutas configurables por entorno (defaults asumen cwd = raiz del repo).
 _ROOT = Path(os.getenv("EV3_ROOT", Path(__file__).resolve().parent.parent))
 SCHEMA_PATH = Path(os.getenv("FEATURE_SCHEMA_PATH", _ROOT / "feature_schema.json"))
 SERVING_DIR = Path(os.getenv("MODEL_DIR", _ROOT / "data" / "09_serving"))
 CLF_PATH = SERVING_DIR / "model_clasificacion_2015.pkl"
 REG_PATH = SERVING_DIR / "model_regresion_2015.pkl"
+
+LONGEVITY_THRESHOLD = 0.5
 
 
 @lru_cache(maxsize=1)
@@ -35,8 +39,6 @@ def feature_codes() -> list[str]:
 
 
 def _load_pickle(path: Path) -> Any:
-    import pickle
-
     if not path.exists():
         raise FileNotFoundError(
             f"No se encontro el modelo bendecido en {path}. "
@@ -56,6 +58,12 @@ def get_regressor() -> Any:
     return _load_pickle(REG_PATH)
 
 
+def load_models() -> None:
+    """Precarga ambos modelos en memoria durante el startup de FastAPI."""
+    get_classifier()
+    get_regressor()
+
+
 def models_ready() -> bool:
     return CLF_PATH.exists() and REG_PATH.exists()
 
@@ -63,8 +71,9 @@ def models_ready() -> bool:
 def _to_frame(features: dict[str, Any]) -> pd.DataFrame:
     """Arma un DataFrame de 1 fila con TODAS las columnas del contrato.
 
-    Los campos ausentes/None quedan como NaN y el imputador del Pipeline (ajustado
-    en entrenamiento) los completa. El ColumnTransformer selecciona por nombre.
+    Los campos ausentes/None quedan como NaN y el imputador del Pipeline
+    (ajustado en entrenamiento) los completa. El ColumnTransformer selecciona
+    por nombre.
     """
     row = {code: features.get(code) for code in feature_codes()}
     return pd.DataFrame([row], columns=feature_codes())
@@ -76,7 +85,7 @@ def predict(features: dict[str, Any], edad_cronologica: float | None = None) -> 
 
     clf = get_classifier()
     proba = float(clf.predict_proba(X)[0, 1])
-    es_longevo = bool(proba >= 0.5)
+    es_longevo = bool(proba >= LONGEVITY_THRESHOLD)
 
     edad_biologica = float(get_regressor().predict(X)[0])
     gap = (
@@ -101,12 +110,6 @@ def explain(features: dict[str, Any], top_n: int = 8) -> dict:
     las columnas one-hot de cada categorica a su feature de origen para devolver
     nombres limpios (RIAGENDR en vez de cat__RIAGENDR_2.0).
     """
-    try:
-        import numpy as np
-        import shap  # import perezoso: dependencia pesada
-    except ImportError as exc:  # pragma: no cover
-        raise RuntimeError("shap no esta instalado: pip install shap") from exc
-
     clf = get_classifier()
     prep = clf.named_steps["prep"]
     model = clf.named_steps["model"]
@@ -115,22 +118,31 @@ def explain(features: dict[str, Any], top_n: int = 8) -> dict:
     X_trans = prep.transform(X)
     trans_names = list(prep.get_feature_names_out())
 
-    explainer = shap.TreeExplainer(model)
-    shap_vals = explainer.shap_values(X_trans)
+    try:
+        explainer = shap.TreeExplainer(model)
+        shap_vals = explainer.shap_values(X_trans)
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("shap no esta instalado: pip install shap") from exc
+
     shap_row = np.asarray(shap_vals)[0]
 
-    # Reagrupar al feature NHANES de origen: "num__BMXBMI" -> "BMXBMI",
-    # "cat__RIAGENDR_2.0" -> "RIAGENDR".
     agg: dict[str, float] = {}
     for name, val in zip(trans_names, shap_row):
-        base = name.split("__", 1)[-1]  # quita prefijo num__/cat__
+        base = name.split("__", 1)[-1]
         if base not in feature_codes():
-            base = base.rsplit("_", 1)[0]  # quita sufijo de la categoria one-hot
+            base = base.rsplit("_", 1)[0]
         agg[base] = agg.get(base, 0.0) + float(val)
 
     ranked = sorted(agg.items(), key=lambda kv: abs(kv[1]), reverse=True)[:top_n]
     contribs = [
-        {"feature": code, "shap": round(val, 4), "empuja": "longevo" if val > 0 else "no_longevo"}
+        {
+            "feature": code,
+            "shap": round(val, 4),
+            "empuja": "longevo" if val > 0 else "no_longevo",
+        }
         for code, val in ranked
     ]
-    return {"base_value": round(float(explainer.expected_value), 4), "contribuciones": contribs}
+    return {
+        "base_value": round(float(explainer.expected_value), 4),
+        "contribuciones": contribs,
+    }

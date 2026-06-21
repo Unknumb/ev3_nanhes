@@ -28,7 +28,11 @@ from .schema import PredictRequest, PredictResponse, validate_features
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    db.init_db()  # crea tablas si no existen (best-effort)
+    db.init_db()
+    try:
+        registry.load_models()
+    except Exception as exc:
+        print(f"No se pudieron cargar los modelos al iniciar la API: {exc}")
     yield
 
 
@@ -39,7 +43,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Origenes permitidos configurables por entorno (front Next.js / docker-compose).
 _raw_origins = os.getenv(
     "CORS_ORIGINS",
     "http://localhost:3000,http://127.0.0.1:3000",
@@ -83,7 +86,7 @@ def predict(req: PredictRequest) -> PredictResponse:
     if errores:
         raise HTTPException(status_code=422, detail=errores)
     resultado = registry.predict(req.features, req.edad_cronologica)
-    db.save_prediction(resultado, req.features)  # best-effort: no rompe la prediccion
+    db.save_prediction(resultado, req.features)
     return PredictResponse(**resultado)
 
 
@@ -101,10 +104,9 @@ def explain(req: PredictRequest) -> dict:
 
 @app.get("/aggregates")
 def aggregates() -> dict:
-    """Agregados del historial de predicciones (los consume el dashboard ejecutivo)."""
     try:
         return db.get_aggregates()
-    except Exception as exc:  # BD caida: degradar a 503 en vez de 500
+    except Exception as exc:
         raise HTTPException(status_code=503, detail=f"BD no disponible: {exc}") from exc
 
 

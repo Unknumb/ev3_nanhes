@@ -12,30 +12,26 @@ import pickle
 import tempfile
 from pathlib import Path
 
-import pytest
+_TMP_DIR = Path(tempfile.mkdtemp(prefix="ev3_serving_test_"))
+os.environ["MODEL_DIR"] = str(_TMP_DIR)
+os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DIR / 'test_predictions.db'}"
 
-# La API y XGBoost son opcionales en algunos entornos: saltar limpio si faltan.
+import numpy as np
+import pandas as pd
+import pytest
+from fastapi.testclient import TestClient
+from sklearn.pipeline import Pipeline as SkPipeline
+from xgboost import XGBClassifier, XGBRegressor
+
+from api import db
+from api.main import app
+from ev3_nhanes.pipelines.nhanes_2015 import nodes as n2015
+
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 pytest.importorskip("xgboost")
 pytest.importorskip("sqlalchemy")
 
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-from sklearn.pipeline import Pipeline as SkPipeline  # noqa: E402
-from xgboost import XGBClassifier, XGBRegressor  # noqa: E402
-
-from ev3_nhanes.pipelines.nhanes_2015 import nodes as n2015  # noqa: E402
-
-# Apuntar la API a un directorio temporal ANTES de importarla (las rutas se
-# resuelven en tiempo de import dentro de model_registry).
-_TMP_DIR = Path(tempfile.mkdtemp(prefix="ev3_serving_test_"))
-os.environ["MODEL_DIR"] = str(_TMP_DIR)
-# BD aislada para el test (sqlite temporal): no toca data/predictions.db del repo.
-os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DIR / 'test_predictions.db'}"
-
-# Features requeridas del contrato 2015 (las opcionales se omiten a proposito
-# para verificar que el imputador del Pipeline las completa).
 VALID_FEATURES = {
     "RIAGENDR": 1,
     "RIDRETH3": 3,
@@ -93,11 +89,8 @@ def _build_synthetic_models(dest: Path) -> None:
 @pytest.fixture(scope="module")
 def client():
     _build_synthetic_models(_TMP_DIR)
-    from fastapi.testclient import TestClient
-
-    from api.main import app
-
-    return TestClient(app)
+    with TestClient(app) as client:
+        yield client
 
 
 def test_health(client):
@@ -106,13 +99,12 @@ def test_health(client):
     body = r.json()
     assert body["status"] == "ok"
     assert body["models_ready"] is True
-    assert body["db_ready"] is True  # sqlite temporal siempre acepta conexion
+    assert body["db_ready"] is True
 
 
 def test_schema_tiene_23_features(client):
     body = client.get("/schema").json()
     assert len(body["features"]) == 23
-    # contrato == features reales del modelo 2015
     contrato = set(n2015._COLS_NUMERICAS) | set(n2015._COLS_CATEGORICAS)
     assert {f["code"] for f in body["features"]} == contrato
 
@@ -126,7 +118,6 @@ def test_predict_ok_con_opcionales_imputados(client):
     assert isinstance(body["es_longevo"], bool)
     assert 0.0 <= body["probabilidad"] <= 1.0
     assert body["edad_cronologica"] == 64
-    # gap = edad_biologica - edad_cronologica
     assert body["gap"] == round(body["edad_biologica"] - 64, 1)
 
 
@@ -167,7 +158,6 @@ def test_metrics_responde(client):
 
 
 def test_aggregates_refleja_predicciones(client):
-    # genera al menos una prediccion y verifica que el historial la cuenta
     client.post("/predict", json={"features": VALID_FEATURES, "edad_cronologica": 64})
     r = client.get("/aggregates")
     assert r.status_code == 200
@@ -180,8 +170,6 @@ def test_aggregates_refleja_predicciones(client):
 
 
 def test_predict_persiste_en_bd(client):
-    from api import db
-
     antes = db.get_aggregates()["total_predicciones"]
     client.post("/predict", json={"features": VALID_FEATURES})
     despues = db.get_aggregates()["total_predicciones"]
