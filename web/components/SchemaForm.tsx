@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { EXPLAIN_URL, PREDICT_URL, SCHEMA_URL } from "@/lib/api";
+import {
+  EXPLAIN_URL,
+  PREDICT_URL,
+  SCHEMA_URL,
+  fetchWithTimeout,
+  getFetchErrorMessage
+} from "@/lib/api";
 
 type SchemaOption = {
   value: number | string;
@@ -505,7 +511,7 @@ export function SchemaForm() {
 
     async function loadSchema() {
       try {
-        const response = await fetch(SCHEMA_URL);
+        const response = await fetchWithTimeout(SCHEMA_URL);
 
         if (!response.ok) {
           throw new Error(`La API respondió ${response.status} al cargar el formulario`);
@@ -523,7 +529,7 @@ export function SchemaForm() {
             data: null,
             error:
               error instanceof Error
-                ? error.message
+                ? getFetchErrorMessage(error, "No se pudo cargar el formulario")
                 : "No se pudo cargar el formulario"
           });
         }
@@ -573,7 +579,7 @@ export function SchemaForm() {
     setSubmitState({ status: "submitting", message: null });
 
     try {
-      const response = await fetch(PREDICT_URL, {
+      const response = await fetchWithTimeout(PREDICT_URL, {
         body: JSON.stringify(payload),
         headers: {
           "Content-Type": "application/json"
@@ -611,7 +617,7 @@ export function SchemaForm() {
       });
 
       try {
-        const explainResponse = await fetch(EXPLAIN_URL, {
+        const explainResponse = await fetchWithTimeout(EXPLAIN_URL, {
           body: JSON.stringify(payload),
           headers: {
             "Content-Type": "application/json"
@@ -638,7 +644,7 @@ export function SchemaForm() {
           status: "error",
           message:
             error instanceof Error
-              ? error.message
+              ? getFetchErrorMessage(error, "No se pudo cargar la explicación")
               : "No se pudo cargar la explicación"
         });
       }
@@ -647,7 +653,7 @@ export function SchemaForm() {
         status: "error",
         message:
           error instanceof Error
-            ? error.message
+            ? getFetchErrorMessage(error, "No se pudo enviar el formulario")
             : "No se pudo enviar el formulario"
       });
     }

@@ -19,5 +19,21 @@ body {
 
 body {
   margin: 0;
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  html {
+    @apply bg-slate-50;
+  }
+
+  body {
+    @apply bg-slate-50 font-sans text-slate-950 antialiased;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
 }

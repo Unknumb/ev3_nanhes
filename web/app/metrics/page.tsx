@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { METRICS_URL } from "@/lib/api";
+import { METRICS_URL, fetchWithTimeout, getFetchErrorMessage } from "@/lib/api";
 
 type MetricsResponse = Record<string, string>;
 
@@ -74,7 +74,7 @@ export default function MetricsPage() {
 
     async function loadMetrics() {
       try {
-        const response = await fetch(METRICS_URL);
+        const response = await fetchWithTimeout(METRICS_URL);
 
         if (!response.ok) {
           throw new Error(`La API respondió ${response.status} al cargar las métricas`);
@@ -92,7 +92,7 @@ export default function MetricsPage() {
             data: null,
             error:
               error instanceof Error
-                ? error.message
+                ? getFetchErrorMessage(error, "No se pudieron cargar las métricas")
                 : "No se pudieron cargar las métricas"
           });
         }

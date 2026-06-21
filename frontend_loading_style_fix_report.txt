@@ -1,0 +1,63 @@
+Frontend loading and style fix report
+=====================================
+
+Causa encontrada
+----------------
+- Tailwind estaba configurado e importado correctamente:
+  - web/app/globals.css contiene las directivas @tailwind.
+  - web/app/layout.tsx importa ./globals.css.
+  - web/tailwind.config.ts incluye app/, components/ y lib/.
+- La base global de CSS era muy mínima, por lo que la app dependía demasiado de estilos por componente y podía verse inconsistente durante cargas o errores.
+- Las pantallas quedaban en estado loading porque los fetch de /schema, /aggregates y /metrics no tenían timeout explícito. Si la API no respondía o la conexión quedaba pendiente, el estado podía permanecer en loading.
+
+Archivos modificados
+--------------------
+- web/lib/api.ts
+- web/components/SchemaForm.tsx
+- web/app/executive/page.tsx
+- web/app/metrics/page.tsx
+- web/app/globals.css
+
+Cómo se corrigió
+----------------
+- Se agregó en web/lib/api.ts:
+  - DEFAULT_FETCH_TIMEOUT_MS = 8000
+  - fetchWithTimeout(...)
+  - getFetchErrorMessage(...)
+- El formulario principal ahora usa fetchWithTimeout para:
+  - GET /schema
+  - POST /predict
+  - POST /explain
+- La vista ejecutiva ahora usa fetchWithTimeout para:
+  - GET /aggregates
+- La vista de métricas ahora usa fetchWithTimeout para:
+  - GET /metrics
+- Si la API no está levantada o no responde a tiempo, ahora se muestra un mensaje amigable en lugar de dejar la pantalla indefinidamente en loading.
+- Se reforzó web/app/globals.css con una capa base Tailwind:
+  - fondo global bg-slate-50
+  - texto base text-slate-950
+  - font-sans
+  - antialiased
+  - controles de formulario heredando font
+
+Resultado de npm run build
+--------------------------
+Comando ejecutado:
+
+cd web
+npm.cmd run build
+
+Resultado:
+- Build exitoso.
+- Rutas generadas correctamente:
+  - /
+  - /metrics
+  - /executive
+
+Notas
+-----
+- No se modificó backend.
+- No se modificó Kedro.
+- No se modificaron contratos de API.
+- No se hizo commit.
+- No se hizo push.

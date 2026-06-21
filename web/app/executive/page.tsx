@@ -10,7 +10,11 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { AGGREGATES_URL } from "@/lib/api";
+import {
+  AGGREGATES_URL,
+  fetchWithTimeout,
+  getFetchErrorMessage
+} from "@/lib/api";
 
 type DistributionBin = {
   min: number;
@@ -93,7 +97,7 @@ export default function ExecutivePage() {
 
     async function loadAggregates() {
       try {
-        const response = await fetch(AGGREGATES_URL);
+        const response = await fetchWithTimeout(AGGREGATES_URL);
 
         if (!response.ok) {
           throw new Error(`La API respondió ${response.status} al cargar agregados`);
@@ -115,7 +119,7 @@ export default function ExecutivePage() {
             data: null,
             error:
               error instanceof Error
-                ? error.message
+                ? getFetchErrorMessage(error, "No se pudo cargar la vista ejecutiva")
                 : "No se pudo cargar la vista ejecutiva"
           });
         }
