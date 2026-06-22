@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { METRICS_URL, fetchWithTimeout, getFetchErrorMessage } from "@/lib/api";
+import { extractMetrics } from "@/lib/metrics";
 
 type MetricsResponse = Record<string, string>;
 
@@ -9,58 +10,6 @@ type MetricsState =
   | { status: "loading"; data: null; error: null }
   | { status: "success"; data: MetricsResponse; error: null }
   | { status: "error"; data: null; error: string };
-
-const metricLabels = [
-  "accuracy",
-  "precision",
-  "recall",
-  "f1",
-  "f1-score",
-  "roc_auc",
-  "roc auc",
-  "auc",
-  "mae",
-  "mse",
-  "rmse",
-  "r2",
-  "r2_score"
-];
-
-function normalizeMetricName(name: string) {
-  const normalized = name.toLowerCase().replace(/[-\s]+/g, "_");
-
-  if (normalized === "f1_score") {
-    return "f1";
-  }
-
-  if (normalized === "roc_auc" || normalized === "rocauc") {
-    return "roc_auc";
-  }
-
-  if (normalized === "r2_score") {
-    return "r2";
-  }
-
-  return normalized;
-}
-
-function extractMetrics(reportText: string) {
-  const found = new Map<string, string>();
-
-  metricLabels.forEach((label) => {
-    const pattern = new RegExp(
-      `\\b${label.replace(/[-_\s]+/g, "[-_\\s]*")}\\b\\s*[:=]?\\s*(-?\\d+(?:\\.\\d+)?)`,
-      "i"
-    );
-    const match = reportText.match(pattern);
-
-    if (match?.[1]) {
-      found.set(normalizeMetricName(label), match[1]);
-    }
-  });
-
-  return Array.from(found.entries()).map(([name, value]) => ({ name, value }));
-}
 
 export default function MetricsPage() {
   const [metricsState, setMetricsState] = useState<MetricsState>({

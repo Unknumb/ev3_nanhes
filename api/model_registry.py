@@ -38,6 +38,11 @@ def feature_codes() -> list[str]:
     return [f["code"] for f in load_schema()["features"]]
 
 
+def feature_labels() -> dict[str, str]:
+    """Mapa codigo NHANES -> etiqueta legible (para graficos del front)."""
+    return {f["code"]: f["label"] for f in load_schema()["features"]}
+
+
 def _load_pickle(path: Path) -> Any:
     if not path.exists():
         raise FileNotFoundError(
@@ -145,4 +150,76 @@ def explain(features: dict[str, Any], top_n: int = 8) -> dict:
     return {
         "base_value": round(float(explainer.expected_value), 4),
         "contribuciones": contribs,
+    }
+
+
+def _regroup_to_nhanes(trans_name: str) -> str:
+    """'num__BMXBMI' -> 'BMXBMI'; 'cat__RIAGENDR_2.0' -> 'RIAGENDR'."""
+    base = trans_name.split("__", 1)[-1]  # quita prefijo num__/cat__
+    if base not in feature_codes():
+        base = base.rsplit("_", 1)[0]  # quita sufijo de la categoria one-hot
+    return base
+
+
+# Grupos clinicos (biomarcadores) del feature_schema. El resto (Demografia/
+# Socioeconomico) actua como PROXY de edad por el data augmentation (los ciclos
+# historicos solo aportaron >=70), por eso domina la importancia global pero no es
+# un mensaje util/honesto para el publico. `clinical_only` filtra a estos grupos.
+_CLINICAL_GROUPS = {"Antropometria", "Presion arterial", "Laboratorio"}
+_CLINICAL_EXTRA = {"RIAGENDR"}  # sexo: demografico pero clinicamente relevante
+
+
+def _clinical_codes() -> set[str]:
+    codes = {
+        f["code"]
+        for f in load_schema()["features"]
+        if f.get("group") in _CLINICAL_GROUPS
+    }
+    return codes | _CLINICAL_EXTRA
+
+
+def global_importance(
+    top_n: int = 10,
+    model_name: str = "clasificacion",
+    clinical_only: bool = False,
+) -> dict:
+    """Importancia GLOBAL de features (gain de XGBoost) para graficos del front.
+
+    A diferencia de `explain` (SHAP por-paciente), es una sola vista del modelo.
+    Reagrupa las columnas one-hot al codigo NHANES y adjunta etiquetas legibles.
+
+    - `model_name`: "clasificacion" (longevidad) o "regresion" (edad biologica).
+    - `clinical_only`: si True, deja solo biomarcadores (ver nota arriba). Las
+      proporciones se renormalizan sobre el subconjunto mostrado.
+    """
+    pipe = get_regressor() if model_name == "regresion" else get_classifier()
+    prep = pipe.named_steps["prep"]
+    model = pipe.named_steps["model"]
+
+    importances = model.feature_importances_
+    trans_names = list(prep.get_feature_names_out())
+    labels = feature_labels()
+    clinical = _clinical_codes()
+
+    agg: dict[str, float] = {}
+    for name, val in zip(trans_names, importances):
+        base = _regroup_to_nhanes(name)
+        if clinical_only and base not in clinical:
+            continue
+        agg[base] = agg.get(base, 0.0) + float(val)
+
+    total = sum(agg.values()) or 1.0
+    ranked = sorted(agg.items(), key=lambda kv: kv[1], reverse=True)[:top_n]
+    return {
+        "model": model_name,
+        "clinical_only": clinical_only,
+        "importancias": [
+            {
+                "feature": code,
+                "label": labels.get(code, code),
+                "importance": round(val, 4),
+                "pct": round(val / total * 100, 1),
+            }
+            for code, val in ranked
+        ],
     }

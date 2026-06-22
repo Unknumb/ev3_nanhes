@@ -26,9 +26,11 @@ from sqlalchemy import (
     DateTime,
     Float,
     Integer,
+    String,
     cast,
     create_engine,
     func,
+    inspect,
     select,
     text,
 )
@@ -61,6 +63,10 @@ class Prediction(Base):
     edad_cronologica: Mapped[float | None] = mapped_column(Float, nullable=True)
     gap: Mapped[float | None] = mapped_column(Float, nullable=True)
     features: Mapped[dict] = mapped_column(JSON)  # dict crudo de entrada (JSON/JSONB)
+    # Identificacion debil por correo (sin login). Solo se guarda el email si el
+    # usuario dio consentimiento explicito (consent_save); ver save_prediction.
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    consent_save: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 @lru_cache(maxsize=1)
@@ -75,6 +81,37 @@ def get_engine():
     return create_engine(DATABASE_URL, connect_args=connect_args, future=True)
 
 
+# Columnas agregadas despues de la v1 de la tabla. Migracion ligera (sin Alembic):
+# si la tabla ya existe sin estas columnas, se añaden con ALTER TABLE best-effort.
+_COLUMNAS_NUEVAS = {
+    "email": "VARCHAR(254)",
+    "consent_save": "BOOLEAN DEFAULT FALSE",
+}
+
+
+def _migrate_columns(engine) -> None:
+    """ALTER TABLE ADD COLUMN para columnas nuevas si faltan (idempotente).
+
+    create_all NO altera tablas existentes: si una BD vieja ya tiene `predictions`
+    sin `email`/`consent_save`, las agregamos sin perder datos. Best-effort.
+    """
+    inspector = inspect(engine)
+    if "predictions" not in inspector.get_table_names():
+        return
+    existentes = {c["name"] for c in inspector.get_columns("predictions")}
+    faltantes = {k: v for k, v in _COLUMNAS_NUEVAS.items() if k not in existentes}
+    if not faltantes:
+        return
+    with engine.begin() as conn:
+        for nombre, tipo in faltantes.items():
+            try:
+                conn.execute(
+                    text(f"ALTER TABLE predictions ADD COLUMN {nombre} {tipo}")
+                )
+            except Exception as exc:  # pragma: no cover - dialecto/carrera
+                logger.warning("No se pudo añadir la columna %s: %s", nombre, exc)
+
+
 @lru_cache(maxsize=1)
 def _ensure_tables() -> None:
     """Crea las tablas una sola vez (idempotente). Independiente del lifespan.
@@ -82,7 +119,9 @@ def _ensure_tables() -> None:
     lru_cache solo memoiza retornos exitosos: si la BD esta caida y create_all
     lanza, no se cachea y se reintenta en la proxima llamada.
     """
-    Base.metadata.create_all(get_engine())
+    engine = get_engine()
+    Base.metadata.create_all(engine)
+    _migrate_columns(engine)
 
 
 def init_db() -> bool:
@@ -105,8 +144,19 @@ def db_ready() -> bool:
         return False
 
 
-def save_prediction(result: dict[str, Any], features: dict[str, Any]) -> bool:
-    """Persiste una prediccion. Best-effort: nunca lanza, devuelve si tuvo exito."""
+def save_prediction(
+    result: dict[str, Any],
+    features: dict[str, Any],
+    email: str | None = None,
+    consent_save: bool = False,
+) -> bool:
+    """Persiste una prediccion. Best-effort: nunca lanza, devuelve si tuvo exito.
+
+    El `email` solo se guarda si `consent_save` es True (el usuario marco "guardar
+    mi historial"). Sin consentimiento la fila queda anonima: cuenta para los
+    agregados del dashboard pero no es recuperable por correo.
+    """
+    guardar_email = email if (consent_save and email) else None
     try:
         _ensure_tables()
         with Session(get_engine()) as session:
@@ -118,6 +168,8 @@ def save_prediction(result: dict[str, Any], features: dict[str, Any]) -> bool:
                     edad_cronologica=result.get("edad_cronologica"),
                     gap=result.get("gap"),
                     features=dict(features),
+                    email=guardar_email,
+                    consent_save=bool(consent_save and email),
                 )
             )
             session.commit()
@@ -125,6 +177,33 @@ def save_prediction(result: dict[str, Any], features: dict[str, Any]) -> bool:
     except Exception as exc:
         logger.warning("No se pudo guardar la prediccion: %s", exc)
         return False
+
+
+def get_history(email: str, limit: int = 50) -> list[dict]:
+    """Historial de un correo. Solo filas con consent_save=True (privacidad)."""
+    _ensure_tables()
+    with Session(get_engine()) as session:
+        filas = list(
+            session.scalars(
+                select(Prediction)
+                .where(Prediction.email == email)
+                .where(Prediction.consent_save.is_(True))
+                .order_by(Prediction.created_at.desc())
+                .limit(limit)
+            ).all()
+        )
+    return [
+        {
+            "created_at": r.created_at.isoformat(),
+            "es_longevo": r.es_longevo,
+            "probabilidad": r.probabilidad,
+            "edad_biologica": r.edad_biologica,
+            "edad_cronologica": r.edad_cronologica,
+            "gap": r.gap,
+            "features": r.features,
+        }
+        for r in filas
+    ]
 
 
 def get_aggregates(hist_bins: int = 10) -> dict:

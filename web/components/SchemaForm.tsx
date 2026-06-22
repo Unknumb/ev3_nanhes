@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   EXPLAIN_URL,
   PREDICT_URL,
+  REPORT_URL,
   SCHEMA_URL,
   fetchWithTimeout,
   getFetchErrorMessage
@@ -20,6 +21,8 @@ type SchemaField = {
   type: "numeric" | "categorical";
   required: boolean;
   group: string;
+  tier?: "essential" | "advanced";
+  derived?: boolean;
   unit?: string;
   min?: number;
   max?: number;
@@ -75,6 +78,19 @@ type SchemaState =
   | { status: "loaded"; data: FeatureSchema; error: null }
   | { status: "error"; data: null; error: string };
 
+type ReportResult = {
+  html: string;
+  emailed: boolean;
+  email_mode: string;
+  guardado: boolean;
+};
+
+type ReportState =
+  | { status: "idle"; message: null }
+  | { status: "loading"; message: null }
+  | { status: "success"; message: string }
+  | { status: "error"; message: string };
+
 function normalizeExtraInputs(
   extraInputs: FeatureSchema["extra_inputs"]
 ): SchemaField[] {
@@ -91,6 +107,16 @@ function groupFields(fields: SchemaField[]) {
     groups[groupName] = [...(groups[groupName] ?? []), field];
     return groups;
   }, {});
+}
+
+// Separa los campos en esenciales (visibles) y avanzados (acordeon). Los campos
+// `derived` (p. ej. IMC) no se piden: se calculan en buildPredictPayload.
+function partitionByTier(fields: SchemaField[]) {
+  const inputs = fields.filter((field) => !field.derived);
+  return {
+    essential: inputs.filter((field) => field.tier !== "advanced"),
+    advanced: inputs.filter((field) => field.tier === "advanced")
+  };
 }
 
 function parseFieldValue(field: SchemaField, formData: FormData) {
@@ -115,17 +141,40 @@ function parseFieldValue(field: SchemaField, formData: FormData) {
   return String(rawValue);
 }
 
+// IMC = peso(kg) / estatura(m)^2. La estatura llega en cm desde el form.
+function computeBmi(
+  weightKg: number | string | null,
+  heightCm: number | string | null
+): number | null {
+  const weight = typeof weightKg === "number" ? weightKg : Number(weightKg);
+  const height = typeof heightCm === "number" ? heightCm : Number(heightCm);
+
+  if (!weight || !height || Number.isNaN(weight) || Number.isNaN(height)) {
+    return null;
+  }
+
+  const meters = height / 100;
+  return Math.round((weight / (meters * meters)) * 10) / 10;
+}
+
 function buildPredictPayload(
   schema: FeatureSchema,
   formData: FormData
 ): PredictPayload {
   const features = schema.features.reduce<Record<string, number | string | null>>(
     (payloadFeatures, field) => {
-      payloadFeatures[field.code] = parseFieldValue(field, formData);
+      payloadFeatures[field.code] = field.derived
+        ? null
+        : parseFieldValue(field, formData);
       return payloadFeatures;
     },
     {}
   );
+
+  // Campos derivados: el front los calcula y no los pide como input.
+  if ("BMXBMI" in features) {
+    features.BMXBMI = computeBmi(features.BMXWT, features.BMXHT);
+  }
 
   const edadCronologicaField = normalizeExtraInputs(schema.extra_inputs).find(
     (field) => field.code === "edad_cronologica"
@@ -159,6 +208,18 @@ function getErrorsByField(detail: unknown) {
   }
 
   return errorsByField;
+}
+
+function downloadHtml(html: string, filename = "informe-longevidad.html") {
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 function formatYears(value: number | null | undefined) {
@@ -365,6 +426,145 @@ function ShapBars({ explainResult }: { explainResult: ExplainResult }) {
   );
 }
 
+// Bloque post-resultado: descargar el informe o recibirlo por correo (+ guardar).
+function ReportActions({ payload }: { payload: PredictPayload }) {
+  const [email, setEmail] = useState("");
+  const [guardar, setGuardar] = useState(false);
+  const [reportState, setReportState] = useState<ReportState>({
+    status: "idle",
+    message: null
+  });
+
+  async function requestReport(send: boolean) {
+    if (send && !email.trim()) {
+      setReportState({
+        status: "error",
+        message: "Ingresa tu correo para recibir el informe."
+      });
+      return;
+    }
+
+    setReportState({ status: "loading", message: null });
+
+    try {
+      const response = await fetchWithTimeout(REPORT_URL, {
+        body: JSON.stringify({
+          ...payload,
+          email: send ? email.trim() : null,
+          guardar: send ? guardar : false
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST"
+      });
+      const body = (await response.json().catch(() => null)) as ReportResult | null;
+
+      if (!response.ok || !body) {
+        throw new Error(
+          body && "html" in body
+            ? "No se pudo generar el informe"
+            : `La API respondió ${response.status} al generar el informe`
+        );
+      }
+
+      if (!send) {
+        downloadHtml(body.html);
+        setReportState({
+          status: "success",
+          message: "Descargamos tu informe. Ábrelo o imprímelo a PDF desde el navegador."
+        });
+        return;
+      }
+
+      const enviado =
+        body.email_mode === "smtp"
+          ? `Te enviamos el informe a ${email.trim()}.`
+          : "Informe generado (modo demo: el envío real de correo está desactivado).";
+      const guardadoMsg = body.guardado
+        ? " Guardamos esta predicción en tu historial."
+        : "";
+      setReportState({ status: "success", message: enviado + guardadoMsg });
+    } catch (error) {
+      setReportState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? getFetchErrorMessage(error, "No se pudo generar el informe")
+            : "No se pudo generar el informe"
+      });
+    }
+  }
+
+  const loading = reportState.status === "loading";
+
+  return (
+    <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
+      <div>
+        <h2 className="text-xl font-semibold text-slate-950">Llévate tu informe</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Descárgalo al instante o recíbelo por correo. Si lo deseas, guardamos esta
+          predicción en tu historial (asociada a tu correo).
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+        <label className="grid gap-1" htmlFor="report-email">
+          <span className="text-sm font-medium text-slate-950">Tu correo (opcional)</span>
+          <input
+            className="min-h-11 w-full rounded-md border border-slate-300 px-3 text-sm outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
+            id="report-email"
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="tucorreo@ejemplo.com"
+            type="email"
+            value={email}
+          />
+        </label>
+      </div>
+
+      <label className="flex items-center gap-2 text-sm text-slate-700" htmlFor="report-guardar">
+        <input
+          checked={guardar}
+          className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-200"
+          id="report-guardar"
+          onChange={(event) => setGuardar(event.target.checked)}
+          type="checkbox"
+        />
+        Guardar esta predicción en mi historial (podré consultarla con mi correo).
+      </label>
+
+      <div className="flex flex-wrap gap-3">
+        <button
+          className="min-h-11 rounded-md border border-emerald-700 px-5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={loading}
+          onClick={() => requestReport(false)}
+          type="button"
+        >
+          {loading ? "Generando..." : "Descargar informe"}
+        </button>
+        <button
+          className="min-h-11 rounded-md bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          disabled={loading}
+          onClick={() => requestReport(true)}
+          type="button"
+        >
+          {loading ? "Enviando..." : "Enviarme el informe"}
+        </button>
+      </div>
+
+      {reportState.status === "success" && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
+          {reportState.message}
+        </div>
+      )}
+
+      {reportState.status === "error" && (
+        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">
+          {reportState.message}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function TechnicalJson({
   explainResult,
   lastPayload,
@@ -460,6 +660,7 @@ function FieldControl({
             }
             required={field.required}
             type="number"
+            step="any"
           />
           {field.unit && (
             <span className="min-w-14 text-sm text-slate-600">{field.unit}</span>
@@ -484,6 +685,35 @@ function FieldControl({
       {field.note && <span className="text-xs text-slate-500">{field.note}</span>}
       {error && <span className="text-xs font-medium text-red-700">{error}</span>}
     </label>
+  );
+}
+
+function FieldGroups({
+  fields,
+  fieldErrors
+}: {
+  fields: SchemaField[];
+  fieldErrors: Record<string, string>;
+}) {
+  const groups = groupFields(fields);
+
+  return (
+    <>
+      {Object.entries(groups).map(([groupName, groupFieldList]) => (
+        <section className="grid gap-4" key={groupName}>
+          <h3 className="text-base font-semibold text-slate-800">{groupName}</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            {groupFieldList.map((field) => (
+              <FieldControl
+                error={fieldErrors[field.code]}
+                field={field}
+                key={field.code}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
+    </>
   );
 }
 
@@ -543,12 +773,12 @@ export function SchemaForm() {
     };
   }, []);
 
-  const featureGroups = useMemo(() => {
+  const tiers = useMemo(() => {
     if (schemaState.status !== "loaded") {
-      return {};
+      return { essential: [], advanced: [] };
     }
 
-    return groupFields(schemaState.data.features);
+    return partitionByTier(schemaState.data.features);
   }, [schemaState]);
 
   const edadCronologica = useMemo(() => {
@@ -678,32 +908,41 @@ export function SchemaForm() {
 
   return (
     <form className="grid gap-8" onSubmit={handleSubmit}>
-      {edadCronologica && (
-        <section className="grid gap-4">
-          <h2 className="text-xl font-semibold text-slate-950">Referencia</h2>
+      <section className="grid gap-6 rounded-md border border-slate-200 bg-slate-50 p-6">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-950">Datos esenciales</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Solo lo fácil de saber. El IMC se calcula automáticamente desde tu peso y
+            estatura.
+          </p>
+        </div>
+
+        {edadCronologica && (
           <div className="grid gap-4 md:grid-cols-2">
             <FieldControl
               error={fieldErrors[edadCronologica.code]}
               field={edadCronologica}
             />
           </div>
-        </section>
-      )}
+        )}
 
-      {Object.entries(featureGroups).map(([groupName, fields]) => (
-        <section className="grid gap-4" key={groupName}>
-          <h2 className="text-xl font-semibold text-slate-950">{groupName}</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            {fields.map((field) => (
-              <FieldControl
-                error={fieldErrors[field.code]}
-                field={field}
-                key={field.code}
-              />
-            ))}
+        <FieldGroups fields={tiers.essential} fieldErrors={fieldErrors} />
+      </section>
+
+      {tiers.advanced.length > 0 && (
+        <details className="rounded-md border border-slate-200 bg-white p-6">
+          <summary className="cursor-pointer text-base font-semibold text-slate-800">
+            Datos avanzados (opcional)
+          </summary>
+          <p className="mt-2 text-sm text-slate-600">
+            Si los tienes a mano, afinan el resultado. Si no, el modelo los estima por
+            ti.
+          </p>
+          <div className="mt-6 grid gap-6">
+            <FieldGroups fields={tiers.advanced} fieldErrors={fieldErrors} />
           </div>
-        </section>
-      ))}
+        </details>
+      )}
 
       <section className="grid gap-4 border-t border-slate-200 pt-6">
         <button
@@ -746,6 +985,8 @@ export function SchemaForm() {
           {explainState.status === "success" && explainResult && (
             <ShapBars explainResult={explainResult} />
           )}
+
+          {lastPayload && <ReportActions payload={lastPayload} />}
 
           <TechnicalJson
             explainResult={explainResult}

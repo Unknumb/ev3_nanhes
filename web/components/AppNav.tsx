@@ -2,6 +2,7 @@ import Link from "next/link";
 
 const navItems = [
   { href: "/", label: "Operativa" },
+  { href: "/mis-predicciones", label: "Mis predicciones" },
   { href: "/metrics", label: "Técnica/Métricas" },
   { href: "/executive", label: "Ejecutiva" }
 ];

@@ -17,6 +17,9 @@ class PredictRequest(BaseModel):
 
     features: dict[str, float | int | None] = Field(default_factory=dict)
     edad_cronologica: float | None = None
+    # Opcionales: el correo solo se persiste si `guardar` es True (consentimiento).
+    email: str | None = None
+    guardar: bool = False
 
 
 class PredictResponse(BaseModel):
@@ -51,5 +54,7 @@ def validate_features(features: dict[str, float | int | None]) -> list[str]:
         elif spec["type"] == "categorical":
             validos = {o["value"] for o in spec["options"]}
             if val not in validos:
-                errores.append(f"'{code}' no es una categoria valida {sorted(validos)}: {val}")
+                errores.append(
+                    f"'{code}' no es una categoria valida {sorted(validos)}: {val}"
+                )
     return errores

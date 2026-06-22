@@ -11,6 +11,12 @@ export const METRICS_URL = `${NEXT_PUBLIC_API_URL}/metrics`;
 
 export const AGGREGATES_URL = `${NEXT_PUBLIC_API_URL}/aggregates`;
 
+export const FEATURE_IMPORTANCE_URL = `${NEXT_PUBLIC_API_URL}/feature-importance`;
+
+export const REPORT_URL = `${NEXT_PUBLIC_API_URL}/report`;
+
+export const HISTORY_URL = `${NEXT_PUBLIC_API_URL}/history`;
+
 export const DEFAULT_FETCH_TIMEOUT_MS = 8000;
 
 export async function fetchWithTimeout(

@@ -25,6 +25,9 @@ pytest.importorskip("sqlalchemy")
 _TMP_DIR = Path(tempfile.mkdtemp(prefix="ev3_serving_test_"))
 os.environ["MODEL_DIR"] = str(_TMP_DIR)
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DIR / 'test_predictions.db'}"
+# Mailer en modo demo aislado: escribe a un outbox temporal, no al repo.
+os.environ["MAIL_OUTBOX_DIR"] = str(_TMP_DIR / "outbox")
+os.environ.pop("SMTP_HOST", None)  # forzar modo demo aunque el entorno tenga SMTP
 
 import numpy as np
 import pandas as pd
@@ -187,3 +190,137 @@ def test_explain_si_shap_disponible(client):
     body = r.json()
     assert "contribuciones" in body
     assert len(body["contribuciones"]) > 0
+
+
+# --- Campos opcionales (reduccion de friccion del formulario) ----------------
+
+
+def test_predict_ok_sin_labs_opcionales(client):
+    """LBXTC/LBXGLU y RIDRETH3 ahora son opcionales: el modelo los imputa."""
+    minimo = {
+        "RIAGENDR": 1,
+        "BMXWT": 82,
+        "BMXHT": 175,
+        "BMXBMI": 26.8,
+        "BMXWAIST": 98,
+        "BPXSY1": 128,
+        "BPXDI1": 80,
+        "BPXPLS": 72,
+    }
+    r = client.post("/predict", json={"features": minimo, "edad_cronologica": 40})
+    assert r.status_code == 200
+    assert isinstance(r.json()["es_longevo"], bool)
+
+
+# --- /feature-importance -----------------------------------------------------
+
+
+def test_feature_importance_default(client):
+    r = client.get("/feature-importance")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["model"] == "clasificacion"
+    assert body["clinical_only"] is False
+    assert len(body["importancias"]) >= 1
+    primero = body["importancias"][0]
+    assert {"feature", "label", "importance", "pct"} <= set(primero)
+
+
+def test_feature_importance_clinical_only_filtra(client):
+    r = client.get("/feature-importance", params={"clinical_only": True, "top_n": 5})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["clinical_only"] is True
+    assert len(body["importancias"]) <= 5
+    # Ningun codigo socioeconomico/demografico-secundario debe aparecer.
+    no_clinicos = {"DMDMARTL", "DMDEDUC2", "INDFMPIR", "DMDHHSIZ", "DMDFMSIZ"}
+    devueltos = {i["feature"] for i in body["importancias"]}
+    assert devueltos.isdisjoint(no_clinicos)
+
+
+def test_feature_importance_regresion(client):
+    r = client.get("/feature-importance", params={"model": "regresion"})
+    assert r.status_code == 200
+    assert r.json()["model"] == "regresion"
+
+
+def test_feature_importance_modelo_invalido_422(client):
+    r = client.get("/feature-importance", params={"model": "otro"})
+    assert r.status_code == 422
+
+
+# --- /report (modo demo) -----------------------------------------------------
+
+
+def test_report_genera_html_sin_email(client):
+    r = client.post(
+        "/report", json={"features": VALID_FEATURES, "edad_cronologica": 50}
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["html"].lstrip().startswith("<!doctype html>")
+    assert body["emailed"] is False
+    assert body["email_mode"] == "none"
+    assert body["guardado"] is False
+
+
+def test_report_envia_demo_y_escribe_outbox(client):
+    outbox = Path(os.environ["MAIL_OUTBOX_DIR"])
+    antes = len(list(outbox.glob("*.html"))) if outbox.exists() else 0
+    r = client.post(
+        "/report",
+        json={
+            "features": VALID_FEATURES,
+            "edad_cronologica": 50,
+            "email": "demo@example.com",
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["emailed"] is True
+    assert body["email_mode"] == "demo"
+    despues = len(list(outbox.glob("*.html")))
+    assert despues == antes + 1
+
+
+def test_report_email_invalido_422(client):
+    r = client.post(
+        "/report", json={"features": VALID_FEATURES, "email": "no-es-un-email"}
+    )
+    assert r.status_code == 422
+
+
+# --- /history (guardar por correo, sin login) --------------------------------
+
+
+def test_history_requiere_consentimiento(client):
+    email = "guardo@example.com"
+    # Sin guardar=True: NO debe aparecer en el historial.
+    client.post("/report", json={"features": VALID_FEATURES, "email": email})
+    r = client.get("/history", params={"email": email})
+    assert r.status_code == 200
+    assert r.json()["predicciones"] == []
+
+
+def test_history_con_consentimiento_lista(client):
+    email = "guardo2@example.com"
+    client.post(
+        "/report",
+        json={
+            "features": VALID_FEATURES,
+            "edad_cronologica": 60,
+            "email": email,
+            "guardar": True,
+        },
+    )
+    r = client.get("/history", params={"email": email})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["email"] == email
+    assert len(body["predicciones"]) >= 1
+    assert "edad_biologica" in body["predicciones"][0]
+
+
+def test_history_email_invalido_422(client):
+    r = client.get("/history", params={"email": "x"})
+    assert r.status_code == 422
