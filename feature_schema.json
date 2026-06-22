@@ -1,0 +1,75 @@
+{
+  "cycle": "2015-2016",
+  "model": "nhanes_2015",
+  "target_classification": "IS_LONGEVO",
+  "target_regression": "RIDAGEYR",
+  "description": "Contrato de entrada del modelo de produccion (ciclo 2015). Fuente unica de verdad para la validacion del backend (FastAPI/Pydantic) y el render del formulario (Next.js). Codigos NHANES originales; los campos con required=false pueden ir nulos y el imputador del Pipeline los completa. 'tier' controla el render del form ('essential' visible, 'advanced' en acordeon); 'derived'=true => el front lo calcula y no lo pide como input.",
+  "extra_inputs": [
+    {
+      "code": "edad_cronologica",
+      "label": "Tu edad real (anos)",
+      "type": "numeric",
+      "unit": "anos",
+      "required": false,
+      "tier": "essential",
+      "group": "Referencia",
+      "min": 18,
+      "max": 120,
+      "note": "NO es feature del modelo (RIDAGEYR es el target de regresion). Solo se usa para mostrar el gap edad_biologica - edad_cronologica."
+    }
+  ],
+  "features": [
+    {"code": "RIAGENDR", "label": "Sexo", "type": "categorical", "required": true, "tier": "essential", "group": "Demografia",
+      "options": [{"value": 1, "label": "Masculino"}, {"value": 2, "label": "Femenino"}]},
+    {"code": "BMXWT", "label": "Peso", "type": "numeric", "unit": "kg", "required": true, "tier": "essential", "group": "Antropometria", "min": 20, "max": 300},
+    {"code": "BMXHT", "label": "Estatura", "type": "numeric", "unit": "cm", "required": true, "tier": "essential", "group": "Antropometria", "min": 80, "max": 220},
+    {"code": "BMXBMI", "label": "Indice de masa corporal (IMC)", "type": "numeric", "unit": "kg/m2", "required": true, "tier": "essential", "derived": true, "group": "Antropometria", "min": 10, "max": 90,
+      "note": "Se calcula automaticamente desde tu peso y estatura."},
+    {"code": "BMXWAIST", "label": "Circunferencia de cintura", "type": "numeric", "unit": "cm", "required": true, "tier": "essential", "group": "Antropometria", "min": 40, "max": 180,
+      "note": "Mide alrededor del ombligo con una cinta metrica."},
+    {"code": "BPXSY1", "label": "Presion sistolica (la 'alta')", "type": "numeric", "unit": "mmHg", "required": true, "tier": "essential", "group": "Presion arterial", "min": 60, "max": 300},
+    {"code": "BPXDI1", "label": "Presion diastolica (la 'baja')", "type": "numeric", "unit": "mmHg", "required": true, "tier": "essential", "group": "Presion arterial", "min": 0, "max": 200},
+    {"code": "BPXPLS", "label": "Pulso (latidos por minuto)", "type": "numeric", "unit": "lpm", "required": true, "tier": "essential", "group": "Presion arterial", "min": 30, "max": 220},
+    {"code": "LBXTC", "label": "Colesterol total", "type": "numeric", "unit": "mg/dL", "required": false, "tier": "essential", "group": "Laboratorio", "min": 50, "max": 600,
+      "note": "Opcional. Si tienes analisis recientes, ingresalo para un resultado mas preciso; si no, lo estimamos."},
+    {"code": "LBXGLU", "label": "Glucosa", "type": "numeric", "unit": "mg/dL", "required": false, "tier": "essential", "group": "Laboratorio", "min": 30, "max": 700,
+      "note": "Opcional. Si tienes analisis recientes, ingresala para un resultado mas preciso; si no, la estimamos."},
+
+    {"code": "RIDRETH3", "label": "Raza / origen", "type": "categorical", "required": false, "tier": "advanced", "group": "Demografia",
+      "options": [
+        {"value": 1, "label": "Mexicano-americano"},
+        {"value": 2, "label": "Otro hispano"},
+        {"value": 3, "label": "Blanco no hispano"},
+        {"value": 4, "label": "Negro no hispano"},
+        {"value": 6, "label": "Asiatico no hispano"},
+        {"value": 7, "label": "Otra raza / multirracial"}
+      ]},
+    {"code": "DMDEDUC2", "label": "Nivel educativo", "type": "categorical", "required": false, "tier": "advanced", "group": "Demografia",
+      "options": [
+        {"value": 1, "label": "Menos de 9o grado"},
+        {"value": 2, "label": "9o-11o grado (sin diploma)"},
+        {"value": 3, "label": "Bachillerato / GED"},
+        {"value": 4, "label": "Algo de universidad o tecnico"},
+        {"value": 5, "label": "Universitario o mas"}
+      ]},
+    {"code": "DMDMARTL", "label": "Estado civil", "type": "categorical", "required": false, "tier": "advanced", "group": "Demografia",
+      "options": [
+        {"value": 1, "label": "Casado/a"},
+        {"value": 2, "label": "Viudo/a"},
+        {"value": 3, "label": "Divorciado/a"},
+        {"value": 4, "label": "Separado/a"},
+        {"value": 5, "label": "Nunca casado/a"},
+        {"value": 6, "label": "Vive con pareja"}
+      ]},
+    {"code": "DMDHHSIZ", "label": "Personas en el hogar", "type": "numeric", "unit": "personas", "required": false, "tier": "advanced", "group": "Socioeconomico", "min": 1, "max": 7},
+    {"code": "DMDFMSIZ", "label": "Personas en la familia", "type": "numeric", "unit": "personas", "required": false, "tier": "advanced", "group": "Socioeconomico", "min": 1, "max": 7},
+    {"code": "INDFMPIR", "label": "Indice ingreso-pobreza", "type": "numeric", "unit": "ratio", "required": false, "tier": "advanced", "group": "Socioeconomico", "min": 0, "max": 5},
+    {"code": "BMXLEG", "label": "Largo de pierna (rodilla-muslo)", "type": "numeric", "unit": "cm", "required": false, "tier": "advanced", "group": "Antropometria", "min": 20, "max": 60},
+    {"code": "BMXARML", "label": "Largo de brazo", "type": "numeric", "unit": "cm", "required": false, "tier": "advanced", "group": "Antropometria", "min": 20, "max": 60},
+    {"code": "BMXARMC", "label": "Circunferencia de brazo", "type": "numeric", "unit": "cm", "required": false, "tier": "advanced", "group": "Antropometria", "min": 15, "max": 60},
+    {"code": "BPXSY2", "label": "Presion sistolica (lectura 2)", "type": "numeric", "unit": "mmHg", "required": false, "tier": "advanced", "group": "Presion arterial", "min": 60, "max": 300},
+    {"code": "BPXDI2", "label": "Presion diastolica (lectura 2)", "type": "numeric", "unit": "mmHg", "required": false, "tier": "advanced", "group": "Presion arterial", "min": 0, "max": 200},
+    {"code": "BPXSY3", "label": "Presion sistolica (lectura 3)", "type": "numeric", "unit": "mmHg", "required": false, "tier": "advanced", "group": "Presion arterial", "min": 60, "max": 300},
+    {"code": "BPXDI3", "label": "Presion diastolica (lectura 3)", "type": "numeric", "unit": "mmHg", "required": false, "tier": "advanced", "group": "Presion arterial", "min": 0, "max": 200}
+  ]
+}
