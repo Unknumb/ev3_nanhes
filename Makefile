@@ -4,7 +4,7 @@
 # Entrena + bendice los modelos en data/09_serving/
 # (tarda: descarga datos de la CDC y entrena XGBoost)
 train:
-	kedro run --pipeline nhanes_2015
+	kedro run --pipeline nhanes_combined
 	kedro run --pipeline serving
 
 # ── Desarrollo local (sin Docker) ─────────────────────────────────────────────

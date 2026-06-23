@@ -196,11 +196,18 @@ def aggregates() -> dict:
 @app.get("/metrics")
 def metrics() -> dict:
     reportes_dir = Path(registry._ROOT) / "data" / "08_reporting"
+    # El modelo de produccion es el combinado; si aun no se reentreno, caemos al
+    # baseline 2015 para no romper el dashboard.
+    candidatos = [
+        ("reporte_clasificacion_combined.txt", "reporte_regresion_combined.txt"),
+        ("reporte_clasificacion_2015.txt", "reporte_regresion_2015.txt"),
+    ]
+    clf_name, reg_name = next(
+        (par for par in candidatos if (reportes_dir / par[0]).exists()),
+        candidatos[0],
+    )
     out: dict[str, str] = {}
-    for nombre in (
-        "reporte_clasificacion_2015.txt",
-        "reporte_regresion_2015.txt",
-    ):
+    for nombre in (clf_name, reg_name):
         ruta = reportes_dir / nombre
         out[nombre] = (
             ruta.read_text(encoding="utf-8") if ruta.exists() else "(no disponible)"

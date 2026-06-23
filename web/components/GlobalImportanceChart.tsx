@@ -80,12 +80,13 @@ export function GlobalImportanceChart({
     <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
       <div>
         <h2 className="text-2xl font-semibold text-slate-950">
-          Qué biomarcadores pesan más
+          ¿En qué se fija más el modelo?
         </h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Peso relativo de cada biomarcador en el modelo de longevidad (entre los
-          marcadores clínicos). Tras calcular tu resultado verás el detalle SHAP de tu
-          caso particular.
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          De todo lo que aprendió con miles de personas, estos son los factores de
+          salud que <strong>más pesan</strong> al estimar la longevidad. La barra
+          muestra cuánto influye cada uno (en %). Es la visión general del modelo;
+          al calcular tu resultado verás qué pesó en <strong>tu</strong> caso.
         </p>
       </div>
 

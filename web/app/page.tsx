@@ -24,10 +24,10 @@ export default function Home() {
               2 minutos
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-slate-700">
-              Tu cuerpo puede ser más joven o más viejo que tu edad real. Ingresa unos
-              biomarcadores simples y un modelo de machine learning estima tu edad
-              biológica y tu probabilidad de longevidad, con una explicación de qué la
-              empuja.
+              Tu cuerpo puede ser más joven o más viejo que tu edad real. Responde unos
+              datos simples y una IA entrenada con miles de personas estima la edad que
+              aparenta tu cuerpo y tu probabilidad de llegar a viejo/a, y te explica en
+              palabras claras qué influyó.
             </p>
           </div>
 
@@ -74,10 +74,45 @@ export default function Home() {
             <h2 className="text-2xl font-semibold text-slate-950">
               Calcula tu edad biológica
             </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Completa los datos esenciales. Los campos de laboratorio son opcionales:
-              si no los tienes, el modelo los estima. Al final puedes descargar tu
-              informe o recibirlo por correo.
+            <p className="mt-2 text-base leading-7 text-slate-700">
+              Responde unas preguntas fáciles sobre tu salud y te decimos qué edad
+              aparenta tu cuerpo y qué tan probable es que llegues a longevo/a (70+
+              años). Toma unos 2 minutos y no necesitas saber nada de tecnología.
+            </p>
+
+            <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+              {[
+                {
+                  n: "1",
+                  t: "Completa lo esencial",
+                  d: "Datos que ya conoces: peso, estatura, presión, si fumas…"
+                },
+                {
+                  n: "2",
+                  t: "El laboratorio es opcional",
+                  d: "¿No tienes análisis de sangre? Tranquilo, el modelo lo estima por ti."
+                },
+                {
+                  n: "3",
+                  t: "Mira tu resultado",
+                  d: "Tu edad biológica, tu probabilidad y qué factores influyeron."
+                }
+              ].map((step) => (
+                <li
+                  className="rounded-xl border border-slate-200 bg-white p-4"
+                  key={step.n}
+                >
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-800">
+                    {step.n}
+                  </span>
+                  <p className="mt-2 text-sm font-semibold text-slate-950">{step.t}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">{step.d}</p>
+                </li>
+              ))}
+            </ol>
+
+            <p className="mt-3 text-sm text-slate-500">
+              Al final puedes descargar tu informe o recibirlo por correo.
             </p>
           </div>
           <SchemaForm />

@@ -52,9 +52,10 @@ La pauta exige **al menos 3 fuentes distintas** (ej.: CSV/Excel, API REST, BD SQ
 ```
 ev3_nanhes/
 ├── src/ev3_nhanes/pipelines/        # capa ETL (Kedro)
-│   ├── nhanes_2013 | nhanes_2015 | nhanes_2017_2018   # training            [HECHO]
-│   ├── serving/                     # bendice modelo 2015 -> data/09_serving/ [HECHO]
-│   └── load_db/                     # carga dataset procesado -> Postgres     [PENDIENTE]
+│   ├── nhanes_combined             # modelo de producción (todos los ciclos)  [HECHO]
+│   ├── nhanes_2013 | nhanes_2015 | nhanes_2017_2018   # baselines por ciclo   [HECHO]
+│   ├── serving/                     # bendice combinado -> data/09_serving/    [HECHO]
+│   └── load_db/                     # carga dataset procesado -> Postgres      [HECHO]
 ├── feature_schema.json              # contrato compartido back/front          [HECHO]
 ├── api/                             # FastAPI: /predict /explain /schema /metrics [HECHO]
 │   └── (+ historial de predicciones -> Postgres)                              [PENDIENTE]
@@ -100,8 +101,8 @@ ev3_nanhes/
 
 ## Cómo arrancar (orden)
 ```bash
-# 1) entrenar modelo de producción (descarga CDC, lento)
-kedro run --pipeline nhanes_2015
+# 1) entrenar modelo de producción combinado (descarga CDC, lento)
+kedro run --pipeline nhanes_combined
 # 2) bendecirlo a ruta estable para la API
 kedro run --pipeline serving
 # 3) (próximo) cargar dataset procesado a Postgres
@@ -111,8 +112,11 @@ docker-compose up        # api :8000, dashboard :8501, postgres :5432
 ```
 
 ## Deuda conocida
-- **Selector de ciclo (v2):** 2017 usa otro contrato (DIQ010, SMQ020, promedios de presión,
-  sin glucosa/colesterol). Requiere segundo sub-formulario o unificar y reentrenar.
-- Plumbing de mortalidad del 2017 heredado del merge (muerto) — no afecta al serving 2015.
+- **Modelo unificado + features clínicas (HECHO):** `nhanes_combined` une todos los ciclos
+  (2005-2018) en un solo modelo de producción con **36 features** (23 base + panel PhenoAge de
+  laboratorio + 4 de cuestionario). Entrenado y bendecido: F1 0.92 (clf), MAE 6.0 años / R² 0.81 (reg).
+- **PCR/inflamación (v2):** la hs-CRP solo existe 2015-2018 (hueco 2011-2014); para sumarla habría
+  que restringir ciclos. Hoy se omite del panel PhenoAge a propósito.
+- Plumbing de mortalidad del 2017 heredado del merge (muerto) — no afecta al serving combinado.
 - Next.js queda **opcional / fuera del MVP evaluado**: la pauta nombra Plotly Dash/Streamlit
   y el dashboard graduado es el Streamlit. Si sobra tiempo, Next.js como front "producto".

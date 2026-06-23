@@ -6,18 +6,19 @@ from .nodes import bendecir_modelos_serving
 
 
 def create_pipeline(**kwargs) -> Pipeline:
-    """Bendice el modelo de producción (2015) a data/09_serving/.
+    """Bendice el modelo de producción (COMBINADO) a data/09_serving/.
 
-    Consume los modelos versionados del pipeline nhanes_2015 (toma la versión
-    más reciente persistida) y los copia a una ruta estable que lee la API.
+    Consume los modelos versionados del pipeline nhanes_combined (toma la
+    versión más reciente persistida) y los copia a una ruta estable que lee la
+    API. El modelo combinado se entrena con TODOS los ciclos del equipo.
     """
     return pipeline(
         [
             node(
                 func=bendecir_modelos_serving,
                 inputs=[
-                    "modelo_clasificacion_nhanes_2015",
-                    "modelo_regresion_nhanes_2015",
+                    "modelo_clasificacion_nhanes_combined",
+                    "modelo_regresion_nhanes_combined",
                 ],
                 outputs=[
                     "modelo_serving_clasificacion",

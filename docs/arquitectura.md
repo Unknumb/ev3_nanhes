@@ -22,8 +22,8 @@ flowchart TD
     CDC[("FUENTE 1<br/>Archivos NHANES .xpt — CDC")]
 
     subgraph ETL["ETL · Kedro"]
-        TRAIN["nhanes_2015: descarga → limpieza SAS →<br/>preprocesa → entrena XGBoost (clf + reg)"]
-        SERV["serving: bendice el modelo"]
+        TRAIN["nhanes_combined: descarga todos los ciclos →<br/>limpieza SAS → preprocesa → entrena XGBoost (clf + reg)"]
+        SERV["serving: bendice el modelo combinado"]
         LOADDB["load_db: dataset procesado → SQL"]
     end
 
@@ -54,7 +54,7 @@ fold) → **sin fuga de datos**. El `best_estimator_` resultante es autocontenid
 ```mermaid
 flowchart LR
     A["Descarga .xpt<br/>wwwn.cdc.gov"] --> B["Limpieza centinela SAS<br/>(5.4e-79 → NaN)"]
-    B --> C["Unión de ciclos<br/>2015 base + históricos ≥70"]
+    B --> C["Unión de ciclos<br/>2017-2018 base + históricos ≥70 (2015..2005)"]
     C --> D["train_test_split<br/>(antes de transformar)"]
     D --> E["ColumnTransformer<br/>num: KNNImputer+Scaler · cat: Imputer+OneHot"]
     E --> F["RandomizedSearchCV<br/>XGBClassifier + XGBRegressor"]
@@ -104,10 +104,11 @@ erDiagram
 ## Componentes
 | Componente | Ubicación | Responsabilidad |
 |---|---|---|
-| Pipelines de ciclo | `src/ev3_nhanes/pipelines/nhanes_*` | Descarga, limpieza, preprocesamiento y entrenamiento por ciclo NHANES |
-| Pipeline `serving` | `src/ev3_nhanes/pipelines/serving` | Copia el modelo 2015 a una ruta estable + `metadata.json` |
+| Pipeline `nhanes_combined` | `src/ev3_nhanes/pipelines/nhanes_combined` | **Modelo de producción**: une todos los ciclos del equipo y entrena el par clf+reg |
+| Pipelines de ciclo | `src/ev3_nhanes/pipelines/nhanes_{2013,2015,2017_2018}` | Baselines por ciclo (no servidos): descarga, preprocesa y entrena por cohorte |
+| Pipeline `serving` | `src/ev3_nhanes/pipelines/serving` | Copia el modelo combinado a una ruta estable + `metadata.json` |
 | Pipeline `load_db` | `src/ev3_nhanes/pipelines/load_db` | Carga el dataset procesado a la base SQL |
-| Contrato | `feature_schema.json` | Fuente única de verdad de las 23 features (tipos, rangos, opciones) |
+| Contrato | `feature_schema.json` | Fuente única de verdad de las 36 features (tipos, rangos, opciones) |
 | `model_registry.py` | `api/` | Carga modelos, `predict`, `explain` (SHAP) |
 | `db.py` | `api/` | `save_prediction` (best-effort) y `get_aggregates` (SQLAlchemy) |
 | `schema.py` | `api/` | Modelos Pydantic + validación contra el contrato |

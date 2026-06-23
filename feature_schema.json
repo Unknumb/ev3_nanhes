@@ -1,9 +1,9 @@
 {
-  "cycle": "2015-2016",
-  "model": "nhanes_2015",
+  "cycle": "2005-2018 (combinado)",
+  "model": "nhanes_combined",
   "target_classification": "IS_LONGEVO",
   "target_regression": "RIDAGEYR",
-  "description": "Contrato de entrada del modelo de produccion (ciclo 2015). Fuente unica de verdad para la validacion del backend (FastAPI/Pydantic) y el render del formulario (Next.js). Codigos NHANES originales; los campos con required=false pueden ir nulos y el imputador del Pipeline los completa. 'tier' controla el render del form ('essential' visible, 'advanced' en acordeon); 'derived'=true => el front lo calcula y no lo pide como input.",
+  "description": "Contrato de entrada del modelo de produccion (COMBINADO: todos los ciclos 2005-2018 del equipo). 36 features: las 23 base + 9 labs del panel PhenoAge (Levine 2018, opcionales/imputados) + 4 de cuestionario (salud autopercibida, tabaquismo, diabetes, evento cardiovascular previo). Fuente unica de verdad para la validacion del backend (FastAPI/Pydantic) y el render del formulario (Next.js). Codigos NHANES originales; los campos con required=false pueden ir nulos y el imputador del Pipeline los completa. 'tier' controla el render del form ('essential' visible, 'advanced' en acordeon); 'derived'=true => el front lo calcula y no lo pide como input.",
   "extra_inputs": [
     {
       "code": "edad_cronologica",
@@ -70,6 +70,52 @@
     {"code": "BPXSY2", "label": "Presion sistolica (lectura 2)", "type": "numeric", "unit": "mmHg", "required": false, "tier": "advanced", "group": "Presion arterial", "min": 60, "max": 300},
     {"code": "BPXDI2", "label": "Presion diastolica (lectura 2)", "type": "numeric", "unit": "mmHg", "required": false, "tier": "advanced", "group": "Presion arterial", "min": 0, "max": 200},
     {"code": "BPXSY3", "label": "Presion sistolica (lectura 3)", "type": "numeric", "unit": "mmHg", "required": false, "tier": "advanced", "group": "Presion arterial", "min": 60, "max": 300},
-    {"code": "BPXDI3", "label": "Presion diastolica (lectura 3)", "type": "numeric", "unit": "mmHg", "required": false, "tier": "advanced", "group": "Presion arterial", "min": 0, "max": 200}
+    {"code": "BPXDI3", "label": "Presion diastolica (lectura 3)", "type": "numeric", "unit": "mmHg", "required": false, "tier": "advanced", "group": "Presion arterial", "min": 0, "max": 200},
+
+    {"code": "HSD010", "label": "Tu salud en general", "type": "categorical", "required": false, "tier": "essential", "group": "Antecedentes",
+      "note": "Tu propia percepcion. Es uno de los predictores de longevidad mas fuertes.",
+      "options": [
+        {"value": 1, "label": "Excelente"},
+        {"value": 2, "label": "Muy buena"},
+        {"value": 3, "label": "Buena"},
+        {"value": 4, "label": "Regular"},
+        {"value": 5, "label": "Mala"}
+      ]},
+    {"code": "SMQ020", "label": "Has fumado 100+ cigarrillos en tu vida?", "type": "categorical", "required": false, "tier": "essential", "group": "Antecedentes",
+      "options": [
+        {"value": 1, "label": "Si"},
+        {"value": 2, "label": "No"}
+      ]},
+    {"code": "DIQ010", "label": "Te han diagnosticado diabetes?", "type": "categorical", "required": false, "tier": "essential", "group": "Antecedentes",
+      "options": [
+        {"value": 1, "label": "Si"},
+        {"value": 2, "label": "No"},
+        {"value": 3, "label": "Limite / prediabetes"}
+      ]},
+    {"code": "MCQ_CVD", "label": "Evento cardiovascular previo (infarto, ACV, insuf. cardiaca)?", "type": "categorical", "required": false, "tier": "essential", "group": "Antecedentes",
+      "note": "Marca Si si alguna vez tuviste infarto, ACV, insuficiencia cardiaca o enfermedad coronaria.",
+      "options": [
+        {"value": 1, "label": "Si"},
+        {"value": 0, "label": "No"}
+      ]},
+
+    {"code": "LBXGH", "label": "Hemoglobina glicada (HbA1c)", "type": "numeric", "unit": "%", "required": false, "tier": "advanced", "group": "Laboratorio", "min": 3, "max": 20,
+      "note": "Opcional. Marcador metabolico clave; si no lo tienes, lo estimamos."},
+    {"code": "LBDHDD", "label": "Colesterol HDL ('bueno')", "type": "numeric", "unit": "mg/dL", "required": false, "tier": "advanced", "group": "Laboratorio", "min": 5, "max": 200,
+      "note": "Opcional. Si tienes analisis recientes, ingresalo; si no, lo estimamos."},
+    {"code": "LBXSAL", "label": "Albumina", "type": "numeric", "unit": "g/dL", "required": false, "tier": "advanced", "group": "Laboratorio", "min": 1, "max": 6,
+      "note": "Opcional (panel PhenoAge). Se estima si no lo tienes."},
+    {"code": "LBXSCR", "label": "Creatinina", "type": "numeric", "unit": "mg/dL", "required": false, "tier": "advanced", "group": "Laboratorio", "min": 0.1, "max": 20,
+      "note": "Opcional (panel PhenoAge). Se estima si no lo tienes."},
+    {"code": "LBXSAPSI", "label": "Fosfatasa alcalina", "type": "numeric", "unit": "U/L", "required": false, "tier": "advanced", "group": "Laboratorio", "min": 5, "max": 1000,
+      "note": "Opcional (panel PhenoAge). Se estima si no lo tienes."},
+    {"code": "LBXWBCSI", "label": "Leucocitos (globulos blancos)", "type": "numeric", "unit": "1000/uL", "required": false, "tier": "advanced", "group": "Laboratorio", "min": 1, "max": 100,
+      "note": "Opcional (panel PhenoAge). Se estima si no lo tienes."},
+    {"code": "LBXLYPCT", "label": "Linfocitos (%)", "type": "numeric", "unit": "%", "required": false, "tier": "advanced", "group": "Laboratorio", "min": 0, "max": 100,
+      "note": "Opcional (panel PhenoAge). Se estima si no lo tienes."},
+    {"code": "LBXMCVSI", "label": "Volumen corpuscular medio (VCM)", "type": "numeric", "unit": "fL", "required": false, "tier": "advanced", "group": "Laboratorio", "min": 50, "max": 130,
+      "note": "Opcional (panel PhenoAge). Se estima si no lo tienes."},
+    {"code": "LBXRDW", "label": "Ancho de distribucion eritrocitaria (RDW)", "type": "numeric", "unit": "%", "required": false, "tier": "advanced", "group": "Laboratorio", "min": 5, "max": 40,
+      "note": "Opcional (panel PhenoAge). Se estima si no lo tienes."}
   ]
 }

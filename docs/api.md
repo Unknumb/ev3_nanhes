@@ -1,8 +1,8 @@
 # API REST — Referencia
 
-Backend FastAPI que sirve el modelo de producción (ciclo **2015**): clasificación
-`IS_LONGEVO` + regresión de **edad biológica**, con explicabilidad SHAP y
-persistencia del historial.
+Backend FastAPI que sirve el modelo de producción (**combinado**, todos los ciclos
+2005-2018): clasificación `IS_LONGEVO` + regresión de **edad biológica**, con
+explicabilidad SHAP y persistencia del historial.
 
 - **Base URL (local):** `http://localhost:8000`
 - **Docs interactivas (OpenAPI/Swagger):** `http://localhost:8000/docs`
@@ -31,7 +31,7 @@ persistencia del historial.
 - `db_ready`: la base SQL acepta conexiones.
 
 ### `GET /schema`
-Devuelve `feature_schema.json`: lista de 23 features con `code`, `label`, `type`
+Devuelve `feature_schema.json`: lista de 36 features con `code`, `label`, `type`
 (`numeric`/`categorical`), `required`, `min`/`max`/`unit` u `options`. El dashboard
 renderiza el formulario directamente desde aquí.
 
@@ -95,8 +95,8 @@ feature NHANES original (reagrupa las columnas one-hot).
 Devuelve el texto de los reportes de entrenamiento:
 ```json
 {
-  "reporte_clasificacion_2015.txt": "accuracy ...",
-  "reporte_regresion_2015.txt": "MAE ..."
+  "reporte_clasificacion_combined.txt": "accuracy ...",
+  "reporte_regresion_combined.txt": "MAE ..."
 }
 ```
 
