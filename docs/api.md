@@ -118,3 +118,33 @@ Agregados calculados sobre el historial de predicciones (para la vista ejecutiva
 }
 ```
 - `503` si la base SQL no está disponible.
+
+### `POST /auth/request-code`
+Envía un código de acceso de un solo uso (6 dígitos, vence en 10 min) al correo.
+Reutiliza el mailer (SMTP real si está configurado; demo a `data/outbox/` si no).
+```json
+// request
+{ "email": "tucorreo@ejemplo.com" }
+// response
+{ "ok": true, "mode": "smtp" }   // mode: smtp | demo
+```
+- `422` correo inválido · `429` si pides otro código antes de 60 s.
+
+### `POST /auth/verify`
+Verifica el código y devuelve un **token de sesión** (HMAC, válido 7 días).
+```json
+// request
+{ "email": "tucorreo@ejemplo.com", "code": "123456" }
+// response
+{ "token": "<jwt-like>", "email": "tucorreo@ejemplo.com" }
+```
+- `401` si el código es incorrecto, venció, ya se usó o se agotaron los intentos.
+
+### `GET /history`
+Historial del **usuario autenticado**. Requiere `Authorization: Bearer <token>`; el
+correo se deriva del token (nadie puede consultar el historial de otra persona).
+Devuelve solo las predicciones guardadas con consentimiento.
+```
+Authorization: Bearer <token de /auth/verify>
+```
+- `401` sin token o token inválido/vencido · `503` si la base SQL no está disponible.

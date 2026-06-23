@@ -79,8 +79,11 @@ def _enviar_smtp(to: str, subject: str, html: str) -> dict:
     return {"ok": True, "mode": "smtp", "detail": f"enviado a {to}"}
 
 
-def send_report(to: str, subject: str, html: str) -> dict:
-    """Envia el informe. Best-effort: nunca lanza, devuelve {ok, mode, detail}."""
+def send_html(to: str, subject: str, html: str) -> dict:
+    """Envia un correo HTML. Best-effort: nunca lanza, devuelve {ok, mode, detail}.
+
+    Modo: SMTP real si hay credenciales; si no, demo (escribe a data/outbox/).
+    """
     if not valid_email(to):
         return {"ok": False, "mode": "none", "detail": "email invalido"}
     try:
@@ -88,5 +91,25 @@ def send_report(to: str, subject: str, html: str) -> dict:
             return _enviar_smtp(to, subject, html)
         return _enviar_demo(to, subject, html)
     except Exception as exc:  # pragma: no cover - depende del entorno SMTP
-        logger.warning("Fallo el envio del informe a %s: %s", to, exc)
+        logger.warning("Fallo el envio a %s: %s", to, exc)
         return {"ok": False, "mode": "error", "detail": str(exc)}
+
+
+def send_report(to: str, subject: str, html: str) -> dict:
+    """Envia el informe de longevidad (alias semantico de send_html)."""
+    return send_html(to, subject, html)
+
+
+def send_login_code(to: str, code: str) -> dict:
+    """Envia el codigo de acceso de un solo uso (login por correo)."""
+    html = (
+        "<div style=\"font-family:system-ui,sans-serif;max-width:480px;margin:auto\">"
+        "<h2 style=\"color:#047857\">Tu codigo de acceso</h2>"
+        "<p>Usa este codigo para entrar a tu historial en NHANES Longevity:</p>"
+        f"<p style=\"font-size:32px;font-weight:700;letter-spacing:6px;"
+        f"background:#ecfdf5;color:#065f46;padding:16px;border-radius:12px;"
+        f"text-align:center\">{code}</p>"
+        "<p style=\"color:#64748b;font-size:14px\">Vence en 10 minutos. "
+        "Si no lo pediste, ignora este correo.</p></div>"
+    )
+    return send_html(to, "Tu codigo de acceso - NHANES Longevity", html)

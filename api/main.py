@@ -1,4 +1,4 @@
-"""API FastAPI: sirve el modelo de longevidad 2015 (clasificacion + regresion).
+"""API FastAPI: sirve el modelo de longevidad combinado (clasificacion + regresion).
 
 Endpoints:
   GET  /health             -> liveness + si los modelos y la BD estan listos
@@ -7,7 +7,9 @@ Endpoints:
   POST /explain            -> contribuciones SHAP por feature (requiere shap instalado)
   GET  /feature-importance -> importancia global de features (graficos del front)
   POST /report             -> informe HTML; lo envia por correo y/o lo persiste
-  GET  /history            -> historial de un correo (solo si dio consentimiento)
+  POST /auth/request-code  -> envia un codigo de acceso de un solo uso al correo
+  POST /auth/verify        -> verifica el codigo y devuelve un token de sesion
+  GET  /history            -> historial del USUARIO AUTENTICADO (requiere token)
   GET  /metrics            -> reportes de entrenamiento (accuracy / MAE) en texto
   GET  /aggregates         -> agregados del historial para el dashboard ejecutivo
 
@@ -22,12 +24,19 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from . import db, mailer, report
+from . import auth, db, mailer, report
 from . import model_registry as registry
-from .schema import PredictRequest, PredictResponse, validate_features
+from .schema import (
+    AuthCodeRequest,
+    AuthVerifyRequest,
+    PredictRequest,
+    PredictResponse,
+    validate_features,
+)
 
 logger = logging.getLogger("ev3.api")
 
@@ -171,13 +180,66 @@ def build_report(req: PredictRequest) -> dict:
     }
 
 
+# ── Autenticacion por correo (magic-link) ──────────────────────────────────
+_bearer = HTTPBearer(auto_error=False)
+
+_AUTH_ERRORS = {
+    "bad": "Codigo incorrecto.",
+    "expired": "El codigo vencio. Pide uno nuevo.",
+    "none": "No hay un codigo activo. Pide uno nuevo.",
+    "locked": "Demasiados intentos. Pide un codigo nuevo.",
+    "formato": "El codigo son 6 digitos.",
+    "email_invalido": "Email invalido.",
+}
+
+
+def current_email(
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> str:
+    """Dependencia: exige un token de sesion valido y devuelve su correo."""
+    email = auth.verify_token(creds.credentials if creds else None)
+    if not email:
+        raise HTTPException(
+            status_code=401, detail="Inicia sesion para ver tu historial."
+        )
+    return email
+
+
+@app.post("/auth/request-code")
+def auth_request_code(req: AuthCodeRequest) -> dict:
+    """Envia un codigo de acceso de un solo uso al correo indicado."""
+    res = auth.request_code(req.email)
+    if not res["ok"]:
+        if res.get("reason") == "email_invalido":
+            raise HTTPException(status_code=422, detail="Email invalido.")
+        if res.get("reason") == "cooldown":
+            raise HTTPException(
+                status_code=429,
+                detail=f"Espera {res['retry_after']}s para pedir otro codigo.",
+            )
+    # No revelamos si el correo "existe": si es valido, el codigo va a su inbox.
+    return {"ok": res["ok"], "mode": res.get("mode", "none")}
+
+
+@app.post("/auth/verify")
+def auth_verify(req: AuthVerifyRequest) -> dict:
+    """Verifica el codigo y devuelve un token de sesion (valido 7 dias)."""
+    res = auth.verify_code(req.email, req.code)
+    if not res["ok"]:
+        raise HTTPException(
+            status_code=401,
+            detail=_AUTH_ERRORS.get(res.get("reason", ""), "Codigo invalido."),
+        )
+    return {"token": res["token"], "email": res["email"]}
+
+
 @app.get("/history")
-def history(
-    email: str = Query(..., min_length=3, max_length=254),
-) -> dict:
-    """Historial de predicciones de un correo (solo las que se guardaron con consentimiento)."""
-    if not mailer.valid_email(email):
-        raise HTTPException(status_code=422, detail="Email invalido")
+def history(email: str = Depends(current_email)) -> dict:
+    """Historial del USUARIO AUTENTICADO (solo lo que guardo con consentimiento).
+
+    El correo se deriva del token de sesion, no de un parametro: nadie puede
+    consultar el historial de otra persona.
+    """
     try:
         predicciones = db.get_history(email)
     except Exception as exc:

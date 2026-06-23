@@ -1,6 +1,7 @@
 fastapi>=0.110
 uvicorn[standard]>=0.27
 pydantic>=2.6
+python-dotenv>=1.0  # carga .env (SMTP_*, SECRET_KEY) en la API
 pandas>=2.3.3
 numpy>=1.26
 scikit-learn>=1.4
