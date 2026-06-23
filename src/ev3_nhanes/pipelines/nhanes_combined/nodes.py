@@ -6,14 +6,17 @@ las 23 base (demografía, antropometría, presión, labs originales) + el panel
 PhenoAge de laboratorio (Nivel B, opcional/imputado) + 4 de cuestionario
 (Nivel A: salud autopercibida, tabaquismo, diabetes, evento cardiovascular):
 
-    - Ciclo base (población completa, ambas clases): 2017-2018 (Juan)
-    - Ciclos históricos (solo longevos ≥70, para balancear la clase minoritaria):
-      2015-2016 (Álvaro), 2013-2014 (Nicolás), 2011-2012, 2009-2010, 2007-2008,
-      2005-2006
+Se descargan TODAS las edades de los 7 ciclos del equipo (2017-2018 base + 2015,
+2013, 2011, 2009, 2007, 2005). El balanceo es **por modelo** (desacoplado), porque
+clasificación y regresión necesitan distribuciones opuestas:
 
-Así el modelo servido en producción ve datos de TODOS los ciclos del equipo,
-sin duplicar filas (cada ciclo se descarga una sola vez) y manteniendo el mismo
-set de 23 features que ya consumen la web, la API y la base de datos.
+    - Clasificación → vista AUMENTADA (base + longevos de todos los ciclos): la
+      clase longeva (≥70) queda bien representada → F1 alto (~0.92).
+    - Regresión → vista BALANCEADA por edad (base + longevos + 40% de los jóvenes
+      históricos): el regresor ve suficientes jóvenes para no inflar la edad
+      biológica de personas jóvenes, manteniendo R²≥0.80.
+
+Mismo set de 36 features que consumen la web, la API y la base de datos.
 """
 
 import pandas as pd
@@ -37,10 +40,14 @@ from xgboost import XGBClassifier, XGBRegressor
 # Configuración de ciclos — TODOS los aportes del equipo en un solo dataset
 # ──────────────────────────────────────────────────────────────────────
 _EDAD_LONGEVO = 70
-# Ciclo base: 2017-2018 (Juan). Aporta toda la población (jóvenes y longevos).
+# Fracción de jóvenes históricos (<70) que ve la REGRESIÓN. Tuneado a 0.4: es el
+# máximo que mantiene R²≥0.80 mientras corrige el sesgo (un joven de 20 pasa de
+# ~55 a ~33 años). La clasificación NO los usa (mantiene F1≈0.92).
+_FRAC_JOVENES_REG = 0.4
+# Ciclo base: 2017-2018 (Juan). Los históricos suman 2015 (Álvaro), 2013 (Nicolás)
+# y profundidad extra. Todos se descargan con TODAS las edades; el balanceo por
+# modelo se hace en las "vistas" del entrenamiento.
 _CICLO_BASE = {"año": "2017", "letra": "J", "nombre": "2017-2018"}
-# Ciclos históricos: solo longevos (≥70) para rescatar la clase minoritaria.
-# Incluye el 2015 (Álvaro) y el 2013 (Nicolás) + profundidad histórica extra.
 _CICLOS_HISTORICOS = [
     {"año": "2015", "letra": "I", "nombre": "2015-2016"},
     {"año": "2013", "letra": "H", "nombre": "2013-2014"},
@@ -160,13 +167,20 @@ def _descargar_ciclo(config_ciclo: dict, solo_longevos: bool = False) -> pd.Data
 
 
 def descargar_y_unir_combinado() -> pd.DataFrame:
-    """Descarga el ciclo base completo + longevos (≥70) de TODOS los históricos."""
-    print("Iniciando extracción combinada (todos los ciclos del equipo)...")
-    df_final = _descargar_ciclo(_CICLO_BASE, solo_longevos=False)
-    for ciclo in _CICLOS_HISTORICOS:
-        df_hist = _descargar_ciclo(ciclo, solo_longevos=True)
-        if not df_hist.empty:
-            df_final = pd.concat([df_final, df_hist], ignore_index=True)
+    """Descarga TODAS las edades de TODOS los ciclos (superset natural).
+
+    El balanceo NO se hace aquí: cada modelo arma su propia vista en el
+    entrenamiento (ver `_vista_clasificacion` / `_vista_regresion`). Bajar todas
+    las edades permite que la regresión vea jóvenes de los ciclos históricos y no
+    sobre-estime la edad biológica de personas jóvenes.
+    """
+    print("Iniciando extracción combinada (todas las edades, todos los ciclos)...")
+    partes = []
+    for ciclo in [_CICLO_BASE, *_CICLOS_HISTORICOS]:
+        df_c = _descargar_ciclo(ciclo, solo_longevos=False)
+        if not df_c.empty:
+            partes.append(df_c)
+    df_final = pd.concat(partes, ignore_index=True)
     print(f"\nExtracción completada: {len(df_final)} pacientes totales.")
     return df_final
 
@@ -256,11 +270,46 @@ def _construir_preprocesador(feature_cols: list[str]) -> ColumnTransformer:
 
 
 # ──────────────────────────────────────────────────────────────────────
+# 3b) VISTAS POR MODELO  (cada modelo ve el balance que le conviene)
+#     El dataset preprocesado trae TODAS las edades; aquí cada modelo arma su
+#     subconjunto. Desacoplar resuelve que clasificación y regresión necesitan
+#     balances opuestos: la primera quiere más longevos, la segunda una
+#     distribución de edades más natural.
+# ──────────────────────────────────────────────────────────────────────
+def _vista_clasificacion(df: pd.DataFrame) -> pd.DataFrame:
+    """Vista AUMENTADA: rescata la clase longeva (minoritaria).
+
+    Ciclo base completo + longevos (≥70) de todos los ciclos; descarta a los
+    jóvenes históricos. Mantiene la clase rara bien representada → F1 alto.
+    """
+    base = df["CICLO_ORIGEN"] == _CICLO_BASE["nombre"]
+    return df[base | (df["IS_LONGEVO"] == 1)].copy()
+
+
+def _vista_regresion(df: pd.DataFrame) -> pd.DataFrame:
+    """Vista BALANCEADA por edad: corrige el sesgo del regresor hacia edades altas.
+
+    Ciclo base completo + longevos históricos + una fracción (`_FRAC_JOVENES_REG`)
+    de los jóvenes históricos. Así el regresor ve suficientes jóvenes para no
+    inflar su edad biológica, sin diluir tanto los datos como para bajar el R².
+    """
+    es_base = df["CICLO_ORIGEN"] == _CICLO_BASE["nombre"]
+    base = df[es_base]
+    hist = df[~es_base]
+    hist_longevos = hist[hist["IS_LONGEVO"] == 1]
+    hist_jovenes = hist[hist["IS_LONGEVO"] == 0].sample(
+        frac=_FRAC_JOVENES_REG, random_state=42
+    )
+    return pd.concat([base, hist_longevos, hist_jovenes], ignore_index=True)
+
+
+# ──────────────────────────────────────────────────────────────────────
 # 4) CLASIFICACIÓN  → devuelve (modelo, reporte_texto)
 # ──────────────────────────────────────────────────────────────────────
 def entrenar_modelo_clasificacion(df: pd.DataFrame) -> tuple[Any, str]:
     """Entrena XGBClassifier para IS_LONGEVO sin fuga de datos."""
     print("Entrenando XGBClassifier combinado (IS_LONGEVO)...")
+    df = _vista_clasificacion(df)  # vista aumentada (rescata la clase longeva)
     feature_cols = [c for c in df.columns if c not in _COLS_EXCLUIR]
     X, y = df[feature_cols], df["IS_LONGEVO"]
 
@@ -318,6 +367,7 @@ def entrenar_modelo_clasificacion(df: pd.DataFrame) -> tuple[Any, str]:
 def entrenar_modelo_regresion(df: pd.DataFrame) -> tuple[Any, str]:
     """Entrena XGBRegressor para RIDAGEYR sin fuga de datos."""
     print("Entrenando XGBRegressor combinado (RIDAGEYR)...")
+    df = _vista_regresion(df)  # vista balanceada por edad (corrige el sesgo joven)
     feature_cols = [c for c in df.columns if c not in _COLS_EXCLUIR]
     X, y = df[feature_cols], df["RIDAGEYR"]
 

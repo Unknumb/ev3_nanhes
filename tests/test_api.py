@@ -27,7 +27,10 @@ os.environ["MODEL_DIR"] = str(_TMP_DIR)
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DIR / 'test_predictions.db'}"
 # Mailer en modo demo aislado: escribe a un outbox temporal, no al repo.
 os.environ["MAIL_OUTBOX_DIR"] = str(_TMP_DIR / "outbox")
-os.environ.pop("SMTP_HOST", None)  # forzar modo demo aunque el entorno tenga SMTP
+# Forzar modo demo: vaciar (no solo pop) las SMTP_* para que el .env del repo no
+# las reponga al importar `api` (load_dotenv no sobrescribe vars ya definidas).
+for _k in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD"):
+    os.environ[_k] = ""
 
 import numpy as np
 import pandas as pd
