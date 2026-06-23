@@ -165,7 +165,7 @@ def _regroup_to_nhanes(trans_name: str) -> str:
 # Socioeconomico) actua como PROXY de edad por el data augmentation (los ciclos
 # historicos solo aportaron >=70), por eso domina la importancia global pero no es
 # un mensaje util/honesto para el publico. `clinical_only` filtra a estos grupos.
-_CLINICAL_GROUPS = {"Antropometria", "Presion arterial", "Laboratorio"}
+_CLINICAL_GROUPS = {"Antropometria", "Presion arterial", "Laboratorio", "Antecedentes"}
 _CLINICAL_EXTRA = {"RIAGENDR"}  # sexo: demografico pero clinicamente relevante
 
 

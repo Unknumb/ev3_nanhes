@@ -17,10 +17,11 @@ despliegue en Docker.
 ```
 ev3_nanhes/
 ├── src/ev3_nhanes/pipelines/   # ETL + entrenamiento (Kedro)
-│   ├── nhanes_2013|2015|2017_2018   # ciclos NHANES
-│   ├── serving/                     # bendice el modelo de producción
-│   └── load_db/                     # carga dataset procesado a SQL
-├── feature_schema.json         # contrato compartido back/front (23 features)
+│   ├── nhanes_combined             # modelo de producción (todos los ciclos)
+│   ├── nhanes_2013|2015|2017_2018  # baselines por ciclo NHANES
+│   ├── serving/                    # bendice el modelo de producción
+│   └── load_db/                    # carga dataset procesado a SQL
+├── feature_schema.json         # contrato compartido back/front (36 features)
 ├── api/                        # Backend FastAPI (REST)
 ├── web/                        # Frontend Next.js (3 audiencias)
 ├── docs/                       # esta documentación

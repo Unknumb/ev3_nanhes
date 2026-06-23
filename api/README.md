@@ -1,13 +1,15 @@
 # API — NHANES Longevity (serving v1)
 
-Sirve el modelo de producción (ciclo **2015**): clasificación `IS_LONGEVO` +
-regresión de **edad biológica**. Los pickles son Pipelines sklearn
-autocontenidos, así que la API solo arma el DataFrame crudo y predice.
+Sirve el modelo de producción (**COMBINADO**: todos los ciclos del equipo,
+2005-2018): clasificación `IS_LONGEVO` + regresión de **edad biológica**. Los
+pickles son Pipelines sklearn autocontenidos, así que la API solo arma el
+DataFrame crudo y predice. El contrato es de 36 features (23 base + panel
+PhenoAge de laboratorio opcional + 4 de cuestionario).
 
 ## 1. Generar el modelo bendecido (una vez)
 ```bash
-# entrena 2015 (descarga CDC) y bendice a data/09_serving/
-kedro run --pipeline nhanes_2015
+# entrena el modelo combinado (descarga CDC) y bendice a data/09_serving/
+kedro run --pipeline nhanes_combined
 kedro run --pipeline serving
 ```
 Esto crea `data/09_serving/model_clasificacion_2015.pkl`,

@@ -1,5 +1,7 @@
-# Modelo de producción (v1 = ciclo 2015) bendecido a ruta estable.
-# Estos datasets NO son versionados: la API siempre lee el mismo filepath.
+# Modelo de producción (modelo COMBINADO: todos los ciclos 2005-2018) bendecido
+# a ruta estable. Los nombres de archivo conservan el sufijo "_2015" por
+# compatibilidad con la API/volúmenes Docker, pero el contenido es el modelo
+# combinado. Estos datasets NO son versionados: la API siempre lee el mismo filepath.
 
 modelo_serving_clasificacion:
   type: pickle.PickleDataset

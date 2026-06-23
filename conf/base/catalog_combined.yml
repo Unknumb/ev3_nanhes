@@ -1,0 +1,41 @@
+# ==============================================================================
+# conf/base/catalog_combined.yml  ·  Pipeline nhanes_combined
+# Modelo ÚNICO del equipo: un solo dataset con TODOS los ciclos (2005-2018)
+# y un único par de modelos (clasificación + regresión).
+# ==============================================================================
+#
+# Flujo:
+#   1. descargar_y_unir_combinado()  → raw_nhanes_combined          (CSV)
+#   2. preprocesar_datos_combinado() → preprocessed_nhanes_combined (Parquet)
+#   3. entrenar_modelo_clasificacion() → modelo_clasificacion_nhanes_combined
+#   4. entrenar_modelo_regresion()     → modelo_regresion_nhanes_combined
+#
+# El pipeline `serving` bendice ESTOS modelos a data/09_serving/ (los que lee la
+# API), y `load_db` carga preprocessed_nhanes_combined a Postgres.
+# ==============================================================================
+
+raw_nhanes_combined:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/nhanes_combined_maestra.csv
+
+preprocessed_nhanes_combined:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/nhanes_combined_procesado.parquet
+
+modelo_clasificacion_nhanes_combined:
+  type: pickle.PickleDataset
+  filepath: data/06_models/xgb_clasificacion_combined.pkl
+  versioned: true
+
+modelo_regresion_nhanes_combined:
+  type: pickle.PickleDataset
+  filepath: data/06_models/xgb_regresion_combined.pkl
+  versioned: true
+
+reporte_clasificacion_nhanes_combined:
+  type: text.TextDataset
+  filepath: data/08_reporting/reporte_clasificacion_combined.txt
+
+reporte_regresion_nhanes_combined:
+  type: text.TextDataset
+  filepath: data/08_reporting/reporte_regresion_combined.txt

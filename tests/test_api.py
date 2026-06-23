@@ -37,7 +37,7 @@ from xgboost import XGBClassifier, XGBRegressor
 
 from api import db
 from api.main import app
-from ev3_nhanes.pipelines.nhanes_2015 import nodes as n2015
+from ev3_nhanes.pipelines.nhanes_combined import nodes as ncomb
 
 VALID_FEATURES = {
     "RIAGENDR": 1,
@@ -58,16 +58,20 @@ _CAT_OPCIONES = {
     "RIDRETH3": [1, 2, 3, 4, 6, 7],
     "DMDEDUC2": [1, 2, 3, 4, 5],
     "DMDMARTL": [1, 2, 3, 4, 5, 6],
+    "HSD010": [1, 2, 3, 4, 5],
+    "SMQ020": [1, 2],
+    "DIQ010": [1, 2, 3],
+    "MCQ_CVD": [0, 1],
 }
 
 
 def _build_synthetic_models(dest: Path) -> None:
     """Entrena modelos diminutos con el preprocesador real y los persiste."""
     rng = np.random.default_rng(42)
-    codes = n2015._COLS_NUMERICAS + n2015._COLS_CATEGORICAS
+    codes = ncomb._COLS_NUMERICAS + ncomb._COLS_CATEGORICAS
     n = 200
-    data: dict = {c: rng.uniform(20, 150, n) for c in n2015._COLS_NUMERICAS}
-    for c in n2015._COLS_CATEGORICAS:
+    data: dict = {c: rng.uniform(20, 150, n) for c in ncomb._COLS_NUMERICAS}
+    for c in ncomb._COLS_CATEGORICAS:
         data[c] = rng.choice(_CAT_OPCIONES[c], n)
     X = pd.DataFrame(data)[codes]
     y_clf = rng.integers(0, 2, n)
@@ -75,13 +79,13 @@ def _build_synthetic_models(dest: Path) -> None:
 
     clf = SkPipeline(
         [
-            ("prep", n2015._construir_preprocesador(codes)),
+            ("prep", ncomb._construir_preprocesador(codes)),
             ("model", XGBClassifier(n_estimators=10, eval_metric="logloss")),
         ]
     ).fit(X, y_clf)
     reg = SkPipeline(
         [
-            ("prep", n2015._construir_preprocesador(codes)),
+            ("prep", ncomb._construir_preprocesador(codes)),
             ("model", XGBRegressor(n_estimators=10)),
         ]
     ).fit(X, y_reg)
@@ -109,10 +113,10 @@ def test_health(client):
     assert body["db_ready"] is True
 
 
-def test_schema_tiene_23_features(client):
+def test_schema_coincide_con_contrato_combinado(client):
     body = client.get("/schema").json()
-    assert len(body["features"]) == 23
-    contrato = set(n2015._COLS_NUMERICAS) | set(n2015._COLS_CATEGORICAS)
+    assert len(body["features"]) == 36
+    contrato = set(ncomb._COLS_NUMERICAS) | set(ncomb._COLS_CATEGORICAS)
     assert {f["code"] for f in body["features"]} == contrato
 
 

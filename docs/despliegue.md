@@ -29,11 +29,13 @@ flowchart TB
 
 ## 0. Entrenar el modelo (una vez, requerido)
 ```bash
-make train          # = kedro run --pipeline nhanes_2015 + serving
+make train          # = kedro run --pipeline nhanes_combined + serving
 ```
-Descarga la CDC, entrena (XGBoost + RandomizedSearchCV) y bendice a
-`data/09_serving/` (`model_clasificacion_2015.pkl`, `model_regresion_2015.pkl`,
-`metadata.json`). Ver métricas en [modelo.md](modelo.md).
+Descarga la CDC (todos los ciclos del equipo), entrena el modelo combinado
+(XGBoost + RandomizedSearchCV) y bendice a `data/09_serving/`
+(`model_clasificacion_2015.pkl`, `model_regresion_2015.pkl`, `metadata.json` —
+los nombres conservan el sufijo `_2015` por compatibilidad, el contenido es el
+combinado). Ver métricas en [modelo.md](modelo.md).
 
 > ⚠️ **Los modelos viven en `data/`, que está en `.gitignore`** — no se commitean.
 > Cada entorno (cada dev, el Docker) debe correr `make train` una vez. El compose

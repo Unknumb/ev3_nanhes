@@ -10,10 +10,10 @@ def create_pipeline(**kwargs) -> Pipeline:
         [
             node(
                 func=preparar_tabla_nhanes,
-                inputs="preprocessed_nhanes_2015",
+                inputs="preprocessed_nhanes_combined",
                 outputs="nhanes_processed_for_db",
                 name="preparar_tabla_nhanes_node",
-                tags=["load_db", "postgres", "nhanes_2015"],
+                tags=["load_db", "postgres", "nhanes_combined"],
             ),
             node(
                 func=cargar_dataset_postgres,
@@ -25,7 +25,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 ),
                 outputs="load_db_result",
                 name="cargar_dataset_postgres_node",
-                tags=["load_db", "postgres", "nhanes_2015"],
+                tags=["load_db", "postgres", "nhanes_combined"],
             ),
         ]
     )

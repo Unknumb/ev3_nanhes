@@ -1,8 +1,9 @@
 """Nodos del pipeline de serving.
 
-El modelo de producción de la v1 es el del ciclo 2015 (clasificación + regresión).
-Como el preprocesamiento vive DENTRO del Pipeline sklearn, cada pickle es
-autocontenido: la API solo necesita pasarle el dict de features crudas.
+El modelo de producción es el COMBINADO (clasificación + regresión), entrenado
+con todos los ciclos del equipo (2005-2018). Como el preprocesamiento vive
+DENTRO del Pipeline sklearn, cada pickle es autocontenido: la API solo necesita
+pasarle el dict de features crudas.
 
 Este nodo "bendice" los modelos versionados más recientes copiándolos a una ruta
 estable (data/09_serving/) y emite un metadata.json con el contrato real
@@ -20,7 +21,7 @@ def bendecir_modelos_serving(
     modelo_clasificacion: Any,
     modelo_regresion: Any,
 ) -> tuple[Any, Any, dict]:
-    """Persiste los modelos 2015 a la ruta de serving y genera su metadata.
+    """Persiste los modelos combinados a la ruta de serving y su metadata.
 
     Args:
         modelo_clasificacion: Pipeline sklearn (prep + XGBClassifier) entrenado.
@@ -36,7 +37,7 @@ def bendecir_modelos_serving(
     feature_cols = list(getattr(prep, "feature_names_in_", []))
 
     metadata = {
-        "cycle": "2015-2016",
+        "cycle": "2005-2018 (combinado)",
         "target_classification": "IS_LONGEVO",
         "target_regression": "RIDAGEYR",
         "n_features": len(feature_cols),
@@ -46,7 +47,7 @@ def bendecir_modelos_serving(
         "blessed_at": datetime.now(timezone.utc).isoformat(),
     }
     print(
-        f"Modelos 2015 bendecidos para serving "
+        f"Modelos COMBINADOS bendecidos para serving "
         f"({metadata['n_features']} features): {feature_cols}"
     )
     return modelo_clasificacion, modelo_regresion, metadata
