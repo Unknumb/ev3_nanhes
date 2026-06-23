@@ -357,7 +357,13 @@ function ResultSummary({ result }: { result: PredictResult }) {
   );
 }
 
-function ShapBars({ explainResult }: { explainResult: ExplainResult }) {
+function ShapBars({
+  explainResult,
+  labels
+}: {
+  explainResult: ExplainResult;
+  labels: Record<string, string>;
+}) {
   const maxMagnitude = Math.max(
     ...explainResult.contribuciones.map((contribution) =>
       Math.abs(contribution.shap)
@@ -368,12 +374,16 @@ function ShapBars({ explainResult }: { explainResult: ExplainResult }) {
   return (
     <section className="grid gap-5 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
       <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-slate-500">
-            SHAP
-          </p>
-        <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-          Factores que más influyen
+        <h2 className="text-2xl font-semibold text-slate-950">
+          ¿Qué influyó en tu resultado?
         </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Estos son los factores que más movieron <strong>tu</strong> predicción.
+          En <span className="font-semibold text-emerald-700">verde</span>, los que
+          te acercan a ser longevo/a; en{" "}
+          <span className="font-semibold text-rose-700">rojo</span>, los que te
+          alejan. Cuanto más larga la barra, más pesó ese factor.
+        </p>
       </div>
 
       <div className="grid gap-4">
@@ -382,46 +392,41 @@ function ShapBars({ explainResult }: { explainResult: ExplainResult }) {
           const width =
             maxMagnitude > 0 ? Math.max(6, (magnitude / maxMagnitude) * 100) : 0;
           const isPositive = contribution.empuja === "longevo";
+          const nombre = labels[contribution.feature] ?? contribution.feature;
 
           return (
             <div className="grid gap-2" key={`${contribution.feature}-${contribution.shap}`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-medium text-slate-950">
-                  {contribution.feature}
-                </span>
+                <span className="font-medium text-slate-950">{nombre}</span>
                 <span
                   className={
                     isPositive
                       ? "rounded-md bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800"
-                      : "rounded-md bg-red-100 px-2 py-1 text-xs font-semibold text-red-800"
+                      : "rounded-md bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-800"
                   }
                 >
-                  {isPositive ? "Empuja a longevo" : "Empuja a no longevo"}
+                  {isPositive ? "↑ Te acerca a longevo" : "↓ Te aleja de longevo"}
                 </span>
               </div>
-              <div className="grid grid-cols-[88px_1fr_72px] items-center gap-3">
-                <span className="text-sm text-slate-500">
-                  {magnitude.toFixed(4)}
-                </span>
-                <div className="h-3 overflow-hidden rounded-md bg-slate-200">
-                  <div
-                    className={
-                      isPositive
-                        ? "h-full rounded-md bg-emerald-600"
-                        : "h-full rounded-md bg-red-600"
-                    }
-                    style={{ width: `${width}%` }}
-                  />
-                </div>
-                <span className="text-right text-sm text-slate-500">
-                  {contribution.shap > 0 ? "+" : ""}
-                  {contribution.shap}
-                </span>
+              <div className="h-3 overflow-hidden rounded-md bg-slate-100">
+                <div
+                  className={
+                    isPositive
+                      ? "h-full rounded-md bg-emerald-500"
+                      : "h-full rounded-md bg-rose-500"
+                  }
+                  style={{ width: `${width}%` }}
+                />
               </div>
             </div>
           );
         })}
       </div>
+
+      <p className="text-xs leading-5 text-slate-400">
+        Calculado con SHAP, una técnica que reparte el resultado entre los datos que
+        ingresaste para ver cuánto aportó cada uno. No es un diagnóstico médico.
+      </p>
     </section>
   );
 }
@@ -791,6 +796,19 @@ export function SchemaForm() {
     );
   }, [schemaState]);
 
+  // Mapa codigo NHANES -> etiqueta legible, para mostrar nombres humanos en el
+  // panel SHAP (la API solo devuelve el codigo).
+  const featureLabels = useMemo(() => {
+    if (schemaState.status !== "loaded") {
+      return {} as Record<string, string>;
+    }
+    const map: Record<string, string> = {};
+    for (const field of schemaState.data.features) {
+      map[field.code] = field.label;
+    }
+    return map;
+  }, [schemaState]);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -972,18 +990,18 @@ export function SchemaForm() {
 
           {explainState.status === "loading" && (
             <div className="rounded-md border border-slate-200 bg-white p-5 text-sm text-slate-700">
-              Cargando explicación SHAP...
+              Analizando qué influyó en tu resultado...
             </div>
           )}
 
           {explainState.status === "error" && (
             <div className="rounded-md border border-amber-200 bg-amber-50 p-5 text-sm font-medium text-amber-900">
-              No se pudo cargar la explicación SHAP: {explainState.message}
+              No se pudo cargar el detalle de tu resultado: {explainState.message}
             </div>
           )}
 
           {explainState.status === "success" && explainResult && (
-            <ShapBars explainResult={explainResult} />
+            <ShapBars explainResult={explainResult} labels={featureLabels} />
           )}
 
           {lastPayload && <ReportActions payload={lastPayload} />}

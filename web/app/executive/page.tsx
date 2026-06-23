@@ -72,15 +72,18 @@ function formatDate(value: string) {
 
 function KpiCard({
   label,
-  value
+  value,
+  hint
 }: {
   label: string;
   value: string | number;
+  hint?: string;
 }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-3 text-3xl font-semibold text-slate-950">{value}</p>
+      <p className="mt-2 text-3xl font-semibold text-slate-950">{value}</p>
+      {hint && <p className="mt-2 text-xs leading-5 text-slate-500">{hint}</p>}
     </div>
   );
 }
@@ -155,7 +158,17 @@ export default function ExecutivePage() {
             Vista ejecutiva
           </h1>
           <p className="mt-4 text-lg leading-8 text-slate-700">
-            Resumen del historial de predicciones registradas por la API.
+            El panorama de todas las personas que ya usaron la herramienta.
+          </p>
+        </div>
+
+        {/* Explicacion en simple */}
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-950">
+          <p className="font-semibold">En simple 👇</p>
+          <p className="mt-1">
+            Cada vez que alguien usa el predictor, guardamos el resultado. Aquí
+            ves el <strong>resumen de todos</strong>: cuántos serían longevos, qué
+            edad biológica aparentan en promedio, y cómo se reparten.
           </p>
         </div>
 
@@ -178,8 +191,8 @@ export default function ExecutivePage() {
         {aggregatesState.status === "success" &&
           aggregatesState.data.total_predicciones === 0 && (
             <div className="rounded-md border border-amber-200 bg-amber-50 p-6 text-amber-900">
-              Aún no hay predicciones registradas. Ejecuta predicciones desde la
-              vista operativa para poblar el historial ejecutivo.
+              Todavía no hay resultados guardados. Calcula tu predicción desde el
+              inicio y vuelve aquí para ver el resumen.
             </div>
           )}
 
@@ -188,12 +201,14 @@ export default function ExecutivePage() {
             <div className="grid gap-8">
               <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <KpiCard
-                  label="Total de predicciones"
+                  label="Personas analizadas"
                   value={aggregatesState.data.total_predicciones}
+                  hint="Cuántas veces se usó el predictor."
                 />
                 <KpiCard
-                  label="% longevos"
+                  label="% que serían longevos"
                   value={formatNumber(aggregatesState.data.pct_longevos, "%")}
+                  hint="Proporción con probabilidad alta de llegar a 70+ años."
                 />
                 <KpiCard
                   label="Edad biológica promedio"
@@ -201,20 +216,23 @@ export default function ExecutivePage() {
                     aggregatesState.data.edad_biologica_promedio,
                     " años"
                   )}
+                  hint="Edad que aparenta el cuerpo, en promedio."
                 />
                 <KpiCard
-                  label="Gap promedio"
+                  label="Diferencia de edad promedio"
                   value={formatNumber(aggregatesState.data.gap_promedio, " años")}
+                  hint="Edad biológica menos edad real. Negativo = más jóvenes de lo que dicen."
                 />
               </section>
 
               <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
                 <div>
                   <h2 className="text-2xl font-semibold text-slate-950">
-                    Distribución de edad biológica
+                    ¿Qué edad biológica aparece más?
                   </h2>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Histograma de predicciones históricas agrupadas por rango.
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Cada barra cuenta cuántas personas cayeron en ese rango de edad
+                    biológica. Las barras más altas son las edades más frecuentes.
                   </p>
                 </div>
 
@@ -222,9 +240,16 @@ export default function ExecutivePage() {
                   <ResponsiveContainer height="100%" width="100%">
                     <BarChart data={chartData} margin={{ left: 8, right: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="range" tick={{ fontSize: 12 }} />
+                      <XAxis
+                        dataKey="range"
+                        tick={{ fontSize: 12 }}
+                        unit=" años"
+                      />
                       <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                      <Tooltip />
+                      <Tooltip
+                        formatter={(value) => [`${value} personas`, "Cantidad"]}
+                        labelFormatter={(label) => `Edad biológica ${label} años`}
+                      />
                       <Bar dataKey="count" fill="#047857" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -234,10 +259,11 @@ export default function ExecutivePage() {
               <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
                 <div>
                   <h2 className="text-2xl font-semibold text-slate-950">
-                    Últimas predicciones
+                    Últimas personas analizadas
                   </h2>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Registros más recientes almacenados en la base de datos.
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Los resultados más recientes. «Diferencia» es la edad biológica
+                    menos la edad real (negativo = más joven de lo que dice).
                   </p>
                 </div>
 
@@ -246,10 +272,10 @@ export default function ExecutivePage() {
                     <thead>
                       <tr className="border-b border-slate-200 text-slate-600">
                         <th className="py-3 pr-4 font-semibold">Fecha</th>
-                        <th className="py-3 pr-4 font-semibold">Longevo</th>
+                        <th className="py-3 pr-4 font-semibold">¿Longevo?</th>
                         <th className="py-3 pr-4 font-semibold">Probabilidad</th>
                         <th className="py-3 pr-4 font-semibold">Edad biológica</th>
-                        <th className="py-3 pr-4 font-semibold">Gap</th>
+                        <th className="py-3 pr-4 font-semibold">Diferencia</th>
                       </tr>
                     </thead>
                     <tbody>
