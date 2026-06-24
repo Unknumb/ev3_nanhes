@@ -260,6 +260,7 @@ Cada integrante trabajó un ciclo NHANES; el modelo de producción los une a tod
 | [`docs/despliegue.md`](docs/despliegue.md) | Guía de despliegue |
 | [`docs/manual_usuario.md`](docs/manual_usuario.md) | Manual de usuario |
 | [`docs/informe_estudio_defensa.md`](docs/informe_estudio_defensa.md) | Informe de estudio / defensa |
+| [`docs/prediccion_mortalidad.md`](docs/prediccion_mortalidad.md) | Diseño (no implementado) para predecir supervivencia / "vivir más de 70" |
 
 ---
 

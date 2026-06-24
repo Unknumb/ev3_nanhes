@@ -12,6 +12,7 @@ despliegue en Docker.
 | [API REST](api.md) | Referencia de endpoints, esquemas de request/response, ejemplos `curl` |
 | [Manual de usuario](manual_usuario.md) | Cómo usar el dashboard (3 audiencias) e interpretar los resultados |
 | [Guía de despliegue](despliegue.md) | Local, Docker, `docker-compose`, `make train`, entrenamiento de modelos |
+| [Predicción de mortalidad](prediccion_mortalidad.md) | Diseño (no implementado) para predecir supervivencia / "vivir más de 70 años" |
 
 ## Mapa del repositorio
 ```
