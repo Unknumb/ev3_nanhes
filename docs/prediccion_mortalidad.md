@@ -1,8 +1,14 @@
 # Predicción de supervivencia ("¿vivirás más de 70 años?") — Diseño
 
 Documento de diseño para agregar un modelo que estime el **riesgo de mortalidad /
-supervivencia**, distinto del modelo actual. **No está implementado**; aquí se
-documenta todo lo necesario para hacerlo.
+supervivencia**, distinto del modelo actual.
+
+> ✅ **MVP implementado** (Opción A — mortalidad a 10 años binaria) en la rama
+> `feature/mortality-mvp` (pipeline `nhanes_mortality`). Resultados en test:
+> **Accuracy 0.894 · ROC-AUC 0.938 · Recall 0.69** sobre 16.382 filas usables
+> (22.7% murieron en 10 años; 25.640 censuradas descartadas). El gate de ≥80% de
+> precisión se cumple con margen y el AUC 0.94 confirma valor real. La **Opción B**
+> (supervivencia / Cox, C-index) sigue pendiente. Correr: `kedro run --pipeline nhanes_mortality`.
 
 ---
 
@@ -40,7 +46,7 @@ supervivencia** y **entrenar** un modelo nuevo.
 
 ## 3. Datos: NHANES Linked Mortality Files (LMF)
 
-- **Qué son:** la CDC enlaza a cada participante de NHANES con el National Death Index
+- **Qué son:** La CDC enlaza a cada participante de NHANES con el National Death Index
   (NDI). Archivos públicos enlazados hasta **2019-12-31**.
 - **Dónde:** `https://ftp.cdc.gov/pub/Health_Statistics/NCHS/datalinkage/linked_mortality/`
   con un archivo por ciclo: `NHANES_{AAAA_AAAA}_MORT_2019_PUBLIC.dat`

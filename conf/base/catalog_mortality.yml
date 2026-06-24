@@ -1,0 +1,42 @@
+# ==============================================================================
+# conf/base/catalog_mortality.yml  ·  Pipeline nhanes_mortality (MVP)
+# Predicción de mortalidad a 10 años. Ver docs/prediccion_mortalidad.md.
+# ==============================================================================
+
+# Archivos enlazados de mortalidad (NDI) de la CDC, uno por ciclo. Parseados por
+# el loader MortalityDataset (fixed-width → SEQN, ELIGSTAT, MORTSTAT, FUTIME).
+raw_mort_2017:
+  type: ev3_nhanes.loaders.MortalityDataset
+  filepath: https://ftp.cdc.gov/pub/Health_Statistics/NCHS/datalinkage/linked_mortality/NHANES_2017_2018_MORT_2019_PUBLIC.dat
+raw_mort_2015:
+  type: ev3_nhanes.loaders.MortalityDataset
+  filepath: https://ftp.cdc.gov/pub/Health_Statistics/NCHS/datalinkage/linked_mortality/NHANES_2015_2016_MORT_2019_PUBLIC.dat
+raw_mort_2013:
+  type: ev3_nhanes.loaders.MortalityDataset
+  filepath: https://ftp.cdc.gov/pub/Health_Statistics/NCHS/datalinkage/linked_mortality/NHANES_2013_2014_MORT_2019_PUBLIC.dat
+raw_mort_2011:
+  type: ev3_nhanes.loaders.MortalityDataset
+  filepath: https://ftp.cdc.gov/pub/Health_Statistics/NCHS/datalinkage/linked_mortality/NHANES_2011_2012_MORT_2019_PUBLIC.dat
+raw_mort_2009:
+  type: ev3_nhanes.loaders.MortalityDataset
+  filepath: https://ftp.cdc.gov/pub/Health_Statistics/NCHS/datalinkage/linked_mortality/NHANES_2009_2010_MORT_2019_PUBLIC.dat
+raw_mort_2007:
+  type: ev3_nhanes.loaders.MortalityDataset
+  filepath: https://ftp.cdc.gov/pub/Health_Statistics/NCHS/datalinkage/linked_mortality/NHANES_2007_2008_MORT_2019_PUBLIC.dat
+raw_mort_2005:
+  type: ev3_nhanes.loaders.MortalityDataset
+  filepath: https://ftp.cdc.gov/pub/Health_Statistics/NCHS/datalinkage/linked_mortality/NHANES_2005_2006_MORT_2019_PUBLIC.dat
+
+# Dataset listo para modelar: features + target murio_10y (sin censurados).
+dataset_mortalidad:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/dataset_mortalidad.parquet
+
+modelo_mortalidad_10y:
+  type: pickle.PickleDataset
+  filepath: data/06_models/xgb_mortalidad_10y.pkl
+  versioned: true
+
+reporte_mortalidad_10y:
+  type: text.TextDataset
+  filepath: data/08_reporting/reporte_mortalidad_10y.txt
