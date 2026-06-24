@@ -62,6 +62,8 @@ class Prediction(Base):
     edad_biologica: Mapped[float] = mapped_column(Float)
     edad_cronologica: Mapped[float | None] = mapped_column(Float, nullable=True)
     gap: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Riesgo de mortalidad a 10 años (0-1) del modelo aparte; null si no se calculó.
+    riesgo_mortalidad_10y: Mapped[float | None] = mapped_column(Float, nullable=True)
     features: Mapped[dict] = mapped_column(JSON)  # dict crudo de entrada (JSON/JSONB)
     # Identificacion debil por correo (sin login). Solo se guarda el email si el
     # usuario dio consentimiento explicito (consent_save); ver save_prediction.
@@ -107,6 +109,7 @@ def get_engine():
 _COLUMNAS_NUEVAS = {
     "email": "VARCHAR(254)",
     "consent_save": "BOOLEAN DEFAULT FALSE",
+    "riesgo_mortalidad_10y": "FLOAT",
 }
 
 
@@ -170,6 +173,7 @@ def save_prediction(
     features: dict[str, Any],
     email: str | None = None,
     consent_save: bool = False,
+    riesgo_mortalidad: float | None = None,
 ) -> bool:
     """Persiste una prediccion. Best-effort: nunca lanza, devuelve si tuvo exito.
 
@@ -188,6 +192,7 @@ def save_prediction(
                     edad_biologica=float(result["edad_biologica"]),
                     edad_cronologica=result.get("edad_cronologica"),
                     gap=result.get("gap"),
+                    riesgo_mortalidad_10y=riesgo_mortalidad,
                     features=dict(features),
                     email=guardar_email,
                     consent_save=bool(consent_save and email),
@@ -222,6 +227,7 @@ def get_history(email: str, limit: int = 50) -> list[dict]:
             "edad_biologica": r.edad_biologica,
             "edad_cronologica": r.edad_cronologica,
             "gap": r.gap,
+            "riesgo_mortalidad_10y": r.riesgo_mortalidad_10y,
             "features": r.features,
         }
         for r in filas
@@ -311,6 +317,7 @@ def get_aggregates(hist_bins: int = 10) -> dict:
                 "pct_longevos": None,
                 "edad_biologica_promedio": None,
                 "gap_promedio": None,
+                "riesgo_mortalidad_promedio": None,
                 "edad_biologica_distribucion": [],
                 "ultimas": [],
             }
@@ -319,6 +326,9 @@ def get_aggregates(hist_bins: int = 10) -> dict:
         )
         edad_prom = session.scalar(select(func.avg(Prediction.edad_biologica)))
         gap_prom = session.scalar(select(func.avg(Prediction.gap)))
+        mort_prom = session.scalar(
+            select(func.avg(Prediction.riesgo_mortalidad_10y))
+        )
         edades = list(session.scalars(select(Prediction.edad_biologica)).all())
         ultimas_rows = list(
             session.scalars(
@@ -342,6 +352,7 @@ def get_aggregates(hist_bins: int = 10) -> dict:
             "probabilidad": r.probabilidad,
             "edad_biologica": r.edad_biologica,
             "gap": r.gap,
+            "riesgo_mortalidad_10y": r.riesgo_mortalidad_10y,
         }
         for r in ultimas_rows
     ]
@@ -354,6 +365,9 @@ def get_aggregates(hist_bins: int = 10) -> dict:
             round(float(edad_prom), 1) if edad_prom is not None else None
         ),
         "gap_promedio": round(float(gap_prom), 1) if gap_prom is not None else None,
+        "riesgo_mortalidad_promedio": (
+            round(float(mort_prom) * 100, 1) if mort_prom is not None else None
+        ),
         "edad_biologica_distribucion": distribucion,
         "ultimas": ultimas,
     }

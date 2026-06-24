@@ -95,6 +95,19 @@ def _require_models() -> None:
         )
 
 
+def _riesgo_mortalidad(
+    features: dict, edad: float | None
+) -> float | None:
+    """Riesgo de mortalidad a 10 años (0-1) si hay edad y modelo. Best-effort."""
+    if edad is None or not registry.mortality_ready():
+        return None
+    try:
+        res = registry.predict_mortality({**features, "RIDAGEYR": edad})
+        return res.get("riesgo_10y")
+    except Exception:  # pragma: no cover
+        return None
+
+
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest) -> PredictResponse:
     _require_models()
@@ -102,8 +115,10 @@ def predict(req: PredictRequest) -> PredictResponse:
     if errores:
         raise HTTPException(status_code=422, detail=errores)
     resultado = registry.predict(req.features, req.edad_cronologica)
+    riesgo = _riesgo_mortalidad(req.features, req.edad_cronologica)
     db.save_prediction(
-        resultado, req.features, email=req.email, consent_save=req.guardar
+        resultado, req.features, email=req.email, consent_save=req.guardar,
+        riesgo_mortalidad=riesgo,
     )
     return PredictResponse(**resultado)
 
@@ -169,8 +184,14 @@ def build_report(req: PredictRequest) -> dict:
         raise HTTPException(status_code=422, detail=errores)
 
     resultado = registry.predict(req.features, req.edad_cronologica)
+
+    # Riesgo de mortalidad a 10 años (modelo aparte; necesita la edad). Best-effort.
+    riesgo = _riesgo_mortalidad(req.features, req.edad_cronologica)
+    mortalidad = {"riesgo_10y": riesgo, "riesgo_pct": round(riesgo * 100, 1)} if riesgo is not None else None
+
     db.save_prediction(
-        resultado, req.features, email=req.email, consent_save=req.guardar
+        resultado, req.features, email=req.email, consent_save=req.guardar,
+        riesgo_mortalidad=riesgo,
     )
 
     explicacion = None
@@ -178,16 +199,6 @@ def build_report(req: PredictRequest) -> dict:
         explicacion = registry.explain(req.features)
     except Exception as exc:  # shap opcional: el informe igual se genera
         logger.info("Informe sin SHAP (explain no disponible): %s", exc)
-
-    # Riesgo de mortalidad a 10 años (modelo aparte; necesita la edad). Best-effort.
-    mortalidad = None
-    if req.edad_cronologica is not None and registry.mortality_ready():
-        try:
-            mortalidad = registry.predict_mortality(
-                {**req.features, "RIDAGEYR": req.edad_cronologica}
-            )
-        except Exception as exc:  # pragma: no cover
-            logger.info("Informe sin mortalidad: %s", exc)
 
     html = report.build_report_html(
         resultado, req.features, registry.load_schema(),
