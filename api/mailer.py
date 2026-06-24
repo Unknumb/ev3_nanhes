@@ -43,18 +43,32 @@ def _slug(email: str) -> str:
     return re.sub(r"[^a-zA-Z0-9._-]+", "_", email.strip()) or "anon"
 
 
-def _enviar_demo(to: str, subject: str, html: str) -> dict:
-    """Modo demo: persiste el correo como archivo HTML en data/outbox/."""
+def _enviar_demo(
+    to: str,
+    subject: str,
+    html: str,
+    pdf: bytes | None = None,
+    filename: str = "informe.pdf",
+) -> dict:
+    """Modo demo: persiste el correo (y el PDF adjunto) en data/outbox/."""
     OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     ruta = OUTBOX_DIR / f"{ts}_{_slug(to)}.html"
     ruta.write_text(html, encoding="utf-8")
+    if pdf is not None:
+        (OUTBOX_DIR / f"{ts}_{_slug(to)}.pdf").write_bytes(pdf)
     logger.info("Correo simulado (demo) escrito en %s", ruta)
     return {"ok": True, "mode": "demo", "detail": str(ruta)}
 
 
-def _enviar_smtp(to: str, subject: str, html: str) -> dict:
-    """Modo real: envia por SMTP con STARTTLS."""
+def _enviar_smtp(
+    to: str,
+    subject: str,
+    html: str,
+    pdf: bytes | None = None,
+    filename: str = "informe.pdf",
+) -> dict:
+    """Modo real: envia por SMTP con STARTTLS, con PDF adjunto opcional."""
     host = os.environ["SMTP_HOST"]
     port = int(os.getenv("SMTP_PORT", "587"))
     user = os.environ["SMTP_USER"]
@@ -66,10 +80,14 @@ def _enviar_smtp(to: str, subject: str, html: str) -> dict:
     msg["From"] = sender
     msg["To"] = to
     msg.set_content(
-        "Tu informe de longevidad esta en formato HTML. "
-        "Abre este correo en un cliente compatible para verlo."
+        "Tu informe de longevidad va en este correo. Si tu cliente no muestra el "
+        "formato, abre el PDF adjunto."
     )
     msg.add_alternative(html, subtype="html")
+    if pdf is not None:
+        msg.add_attachment(
+            pdf, maintype="application", subtype="pdf", filename=filename
+        )
 
     with smtplib.SMTP(host, port, timeout=20) as server:
         server.starttls()
@@ -79,8 +97,14 @@ def _enviar_smtp(to: str, subject: str, html: str) -> dict:
     return {"ok": True, "mode": "smtp", "detail": f"enviado a {to}"}
 
 
-def send_html(to: str, subject: str, html: str) -> dict:
-    """Envia un correo HTML. Best-effort: nunca lanza, devuelve {ok, mode, detail}.
+def send_html(
+    to: str,
+    subject: str,
+    html: str,
+    pdf: bytes | None = None,
+    filename: str = "informe.pdf",
+) -> dict:
+    """Envia un correo HTML (con PDF adjunto opcional). Best-effort: nunca lanza.
 
     Modo: SMTP real si hay credenciales; si no, demo (escribe a data/outbox/).
     """
@@ -88,8 +112,8 @@ def send_html(to: str, subject: str, html: str) -> dict:
         return {"ok": False, "mode": "none", "detail": "email invalido"}
     try:
         if smtp_configured():
-            return _enviar_smtp(to, subject, html)
-        return _enviar_demo(to, subject, html)
+            return _enviar_smtp(to, subject, html, pdf, filename)
+        return _enviar_demo(to, subject, html, pdf, filename)
     except Exception as exc:  # pragma: no cover - depende del entorno SMTP
         logger.warning("Fallo el envio a %s: %s", to, exc)
         return {"ok": False, "mode": "error", "detail": str(exc)}
@@ -98,6 +122,11 @@ def send_html(to: str, subject: str, html: str) -> dict:
 def send_report(to: str, subject: str, html: str) -> dict:
     """Envia el informe de longevidad (alias semantico de send_html)."""
     return send_html(to, subject, html)
+
+
+def send_report_pdf(to: str, subject: str, body_html: str, pdf: bytes | None) -> dict:
+    """Envia el informe con el PDF adjunto (cuerpo corto en HTML)."""
+    return send_html(to, subject, body_html, pdf=pdf, filename="informe_longevidad.pdf")
 
 
 def send_login_code(to: str, code: str) -> dict:

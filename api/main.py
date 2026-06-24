@@ -19,6 +19,7 @@ Ejecutar desde la raiz del repo:
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -164,16 +165,23 @@ def build_report(req: PredictRequest) -> dict:
     html = report.build_report_html(
         resultado, req.features, registry.load_schema(), explain=explicacion
     )
+    pdf = report.build_report_pdf(html)  # bytes o None si xhtml2pdf no está
 
     emailed, email_mode = False, "none"
     if req.email:
         if not mailer.valid_email(req.email):
             raise HTTPException(status_code=422, detail="Email invalido")
-        envio = mailer.send_report(req.email, "Tu informe de longevidad", html)
+        envio = mailer.send_report_pdf(
+            req.email,
+            "Tu informe de longevidad",
+            report.build_email_body(resultado),
+            pdf,
+        )
         emailed, email_mode = envio["ok"], envio["mode"]
 
     return {
         "html": html,
+        "pdf_base64": base64.b64encode(pdf).decode("ascii") if pdf else None,
         "emailed": emailed,
         "email_mode": email_mode,
         "guardado": bool(req.guardar and req.email),
