@@ -117,6 +117,13 @@ function friendlyReport(reportName: string): { titulo: string; subtitulo: string
       subtitulo: "Estima la edad del cuerpo en años. Tipo: regresión."
     };
   }
+  if (lower.includes("mortalidad")) {
+    return {
+      titulo: "Modelo 3 · ¿Riesgo de mortalidad a 10 años?",
+      subtitulo:
+        "Probabilidad de fallecer en los próximos 10 años según el perfil. Tipo: clasificación."
+    };
+  }
   return { titulo: reportName, subtitulo: "" };
 }
 

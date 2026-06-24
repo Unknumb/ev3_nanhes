@@ -121,11 +121,26 @@ def _tabla_factores(explain: dict | None, schema: dict) -> str:
     """
 
 
+def _mortalidad_html(mortalidad: dict | None) -> str:
+    """Sección opcional con el riesgo de mortalidad a 10 años."""
+    if not mortalidad:
+        return ""
+    pct = round(mortalidad.get("riesgo_pct", 0))
+    return f"""
+    <h2 style="font-size:16px;margin:22px 0 4px">Riesgo estimado a 10 años: {pct}%</h2>
+    <p style="margin:4px 0 0;color:#475569;font-size:12px;line-height:1.5">
+      Estimación <b>poblacional</b>: de cada 100 personas con un perfil de salud parecido
+      al tuyo, alrededor de <b>{pct}</b> fallecerían en los próximos 10 años. <b>No</b> es una
+      predicción individual ni un diagnóstico — es un promedio basado en datos de NHANES.
+    </p>"""
+
+
 def build_report_html(
     result: dict[str, Any],
     features: dict[str, Any],
     schema: dict,
     explain: dict | None = None,
+    mortalidad: dict | None = None,
 ) -> str:
     """Informe completo en HTML (sirve para el PDF). Tablas + inline styles."""
     fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -164,6 +179,8 @@ def build_report_html(
 
     <h2 style="font-size:16px;margin:22px 0 4px">Parecido con un perfil de 70+ años: {prob_pct}%</h2>
     <p style="margin:4px 0 0;color:#475569;font-size:12px;line-height:1.5">{_similitud_texto(prob_pct)}</p>
+
+    {_mortalidad_html(mortalidad)}
 
     {_tabla_factores(explain, schema)}
 

@@ -179,8 +179,19 @@ def build_report(req: PredictRequest) -> dict:
     except Exception as exc:  # shap opcional: el informe igual se genera
         logger.info("Informe sin SHAP (explain no disponible): %s", exc)
 
+    # Riesgo de mortalidad a 10 años (modelo aparte; necesita la edad). Best-effort.
+    mortalidad = None
+    if req.edad_cronologica is not None and registry.mortality_ready():
+        try:
+            mortalidad = registry.predict_mortality(
+                {**req.features, "RIDAGEYR": req.edad_cronologica}
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.info("Informe sin mortalidad: %s", exc)
+
     html = report.build_report_html(
-        resultado, req.features, registry.load_schema(), explain=explicacion
+        resultado, req.features, registry.load_schema(),
+        explain=explicacion, mortalidad=mortalidad,
     )
     pdf = report.build_report_pdf(html)  # bytes o None si xhtml2pdf no está
 
@@ -299,4 +310,8 @@ def metrics() -> dict:
         out[nombre] = (
             ruta.read_text(encoding="utf-8") if ruta.exists() else "(no disponible)"
         )
+    # Modelo de mortalidad a 10 años (si está entrenado): se suma a las métricas.
+    ruta_mort = reportes_dir / "reporte_mortalidad_10y.txt"
+    if ruta_mort.exists():
+        out["reporte_mortalidad_10y.txt"] = ruta_mort.read_text(encoding="utf-8")
     return out
