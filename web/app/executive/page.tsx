@@ -28,6 +28,7 @@ type RecentPrediction = {
   probabilidad: number;
   edad_biologica: number;
   gap: number | null;
+  riesgo_mortalidad_10y: number | null;
 };
 
 type AggregatesResponse = {
@@ -35,6 +36,7 @@ type AggregatesResponse = {
   pct_longevos: number | null;
   edad_biologica_promedio: number | null;
   gap_promedio: number | null;
+  riesgo_mortalidad_promedio: number | null;
   edad_biologica_distribucion: DistributionBin[];
   ultimas: RecentPrediction[];
 };
@@ -223,6 +225,14 @@ export default function ExecutivePage() {
                   value={formatNumber(aggregatesState.data.gap_promedio, " años")}
                   hint="Edad biológica menos edad real. Negativo = más jóvenes de lo que dicen."
                 />
+                <KpiCard
+                  label="Riesgo de mortalidad promedio"
+                  value={formatNumber(
+                    aggregatesState.data.riesgo_mortalidad_promedio,
+                    "%"
+                  )}
+                  hint="Probabilidad media de fallecer en 10 años (solo casos con edad)."
+                />
               </section>
 
               <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
@@ -276,6 +286,7 @@ export default function ExecutivePage() {
                         <th className="py-3 pr-4 font-semibold">Probabilidad</th>
                         <th className="py-3 pr-4 font-semibold">Edad biológica</th>
                         <th className="py-3 pr-4 font-semibold">Diferencia</th>
+                        <th className="py-3 pr-4 font-semibold">Riesgo 10 años</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -306,6 +317,11 @@ export default function ExecutivePage() {
                           </td>
                           <td className="py-3 pr-4 text-slate-700">
                             {formatNumber(prediction.gap, " años")}
+                          </td>
+                          <td className="py-3 pr-4 text-slate-700">
+                            {prediction.riesgo_mortalidad_10y != null
+                              ? `${Math.round(prediction.riesgo_mortalidad_10y * 100)}%`
+                              : "—"}
                           </td>
                         </tr>
                       ))}

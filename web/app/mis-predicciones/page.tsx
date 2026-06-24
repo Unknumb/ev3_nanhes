@@ -19,6 +19,7 @@ type Prediction = {
   edad_biologica: number;
   edad_cronologica: number | null;
   gap: number | null;
+  riesgo_mortalidad_10y: number | null;
 };
 
 type HistoryResponse = {
@@ -280,6 +281,7 @@ export default function MisPrediccionesPage() {
                       <th className="px-4 py-3 font-semibold">Edad real</th>
                       <th className="px-4 py-3 font-semibold">Diferencia</th>
                       <th className="px-4 py-3 font-semibold">Prob. longevidad</th>
+                      <th className="px-4 py-3 font-semibold">Riesgo 10 años</th>
                       <th className="px-4 py-3 font-semibold">Resultado</th>
                     </tr>
                   </thead>
@@ -310,6 +312,11 @@ export default function MisPrediccionesPage() {
                           </td>
                           <td className="px-4 py-3 text-slate-600">
                             {Math.round(percent)}%
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">
+                            {prediction.riesgo_mortalidad_10y != null
+                              ? `${Math.round(prediction.riesgo_mortalidad_10y * 100)}%`
+                              : "—"}
                           </td>
                           <td className="px-4 py-3">
                             <span

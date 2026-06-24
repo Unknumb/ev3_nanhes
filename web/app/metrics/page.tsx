@@ -249,10 +249,12 @@ export default function MetricsPage() {
           <p className="font-semibold">En simple 👇</p>
           <p className="mt-1">
             Entrenamos <strong>tres modelos</strong> de inteligencia artificial con
-            datos de salud reales de la encuesta NHANES (EE. UU.): tu{" "}
-            <strong>edad biológica</strong>, tu <strong>parecido con un perfil 70+</strong>{" "}
-            y tu <strong>riesgo de mortalidad a 10 años</strong>. Aquí te mostramos qué
-            tan bien funcionan, sin tecnicismos.
+            datos reales de <strong>~42.000 adultos</strong> de la encuesta NHANES
+            (EE. UU., 7 ciclos): tu <strong>edad biológica</strong>, tu{" "}
+            <strong>parecido con un perfil 70+</strong> y tu{" "}
+            <strong>riesgo de mortalidad a 10 años</strong>. Cada modelo usa la porción
+            de esos datos que le corresponde. Aquí te mostramos qué tan bien funcionan,
+            sin tecnicismos.
           </p>
           <p className="mt-2 text-emerald-800">
             Las <strong>barras</strong> van de 0 a 100%: cuanto más llenas y
