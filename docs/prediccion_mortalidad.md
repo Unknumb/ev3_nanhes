@@ -172,3 +172,24 @@ Nuevo pipeline `nhanes_mortality` (o extender `nhanes_combined`):
 **Resumen:** el repo ya descarga y parsea mortalidad NHANES; falta extender el catálogo a
 todos los ciclos, derivar el target con manejo de censura, añadir la edad como feature, y
 entrenar un modelo (binario para el MVP, supervivencia para hacerlo bien).
+
+---
+
+## 12. Hallazgos al integrarlo al formulario (importante)
+
+- **El modelo de 37 features NO es usable en un formulario disperso.** XGBoost aprende a
+  explotar la *ausencia informativa* (en NHANES, no hacerse un examen correlaciona con estar
+  enfermo). Cuando un usuario simplemente no escribe un campo opcional, el modelo lo
+  malinterpreta → un joven sano daba **97%** de riesgo por tener muchos campos vacíos.
+- **Solución:** entrenar el modelo **solo con los campos que el formulario siempre pide**
+  (11: edad, sexo, IMC, cintura, presión x2, pulso, tabaquismo, diabetes, evento CV, salud
+  autopercibida). Sin faltantes en runtime → predicciones confiables. Cuesta AUC 0.94 → **0.90**.
+- **Los labs avanzados NO ayudan:** añadir HbA1c+HDL+colesterol+glucosa al set de 11 dejó el
+  AUC en 0.90 (sin mejora). El extra del modelo de 37 venía de features difíciles de pedir
+  (hemograma, riñón) + el artefacto de ausencia. → No vale la pena condicionar a "datos avanzados".
+- **Integración elegida:** el riesgo de mortalidad a 10 años se muestra **siempre**, junto a la
+  edad biológica y la longevidad, usando los campos esenciales que el form ya pide
+  (`edad_cronologica` → `RIDAGEYR`). Endpoint `POST /predict-mortality`; tarjeta en la web con
+  framing poblacional y disclaimer.
+- **Métricas servidas (modelo de 11 campos):** AUC **0.90** · Accuracy **0.86** · Recall 0.60.
+  Aporte sobre baseline solo-edad (AUC 0.87): **~+0.03 AUC**.

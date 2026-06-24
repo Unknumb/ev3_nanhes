@@ -138,6 +138,23 @@ def feature_importance(
     )
 
 
+@app.post("/predict-mortality")
+def predict_mortality(req: PredictRequest) -> dict:
+    """MVP: riesgo de mortalidad a 10 años. `features` debe incluir `RIDAGEYR` (edad).
+
+    Modelo separado del de edad biológica (ver docs/prediccion_mortalidad.md).
+    """
+    if not registry.mortality_ready():
+        raise HTTPException(
+            status_code=503,
+            detail="Modelo de mortalidad no disponible. Corre el pipeline nhanes_mortality.",
+        )
+    edad = req.features.get("RIDAGEYR")
+    if edad is None:
+        raise HTTPException(status_code=422, detail="Falta la edad (RIDAGEYR).")
+    return registry.predict_mortality(req.features)
+
+
 @app.post("/report")
 def build_report(req: PredictRequest) -> dict:
     """Genera el informe HTML, opcionalmente lo envia por correo y lo persiste.

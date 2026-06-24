@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   EXPLAIN_URL,
+  MORTALITY_URL,
   PREDICT_URL,
   REPORT_URL,
   SCHEMA_URL,
@@ -48,6 +49,11 @@ type PredictResult = {
   edad_biologica: number;
   edad_cronologica: number | null;
   gap: number | null;
+};
+
+type MortalityResult = {
+  riesgo_10y: number;
+  riesgo_pct: number;
 };
 
 type SubmitState =
@@ -342,6 +348,51 @@ function ResultSummary({ result }: { result: PredictResult }) {
           {getSimilitudTexto(similitud)}
         </p>
       </div>
+    </section>
+  );
+}
+
+function MortalityCard({ result }: { result: MortalityResult }) {
+  const pct = Math.round(Math.max(0, Math.min(100, result.riesgo_pct)));
+  // Tono medido: la mortalidad es sensible, evitamos rojo alarmista para riesgos bajos.
+  const tone =
+    pct < 10
+      ? { bar: "bg-emerald-500", chip: "bg-emerald-100 text-emerald-800", label: "bajo" }
+      : pct < 30
+        ? { bar: "bg-amber-500", chip: "bg-amber-100 text-amber-900", label: "moderado" }
+        : { bar: "bg-rose-500", chip: "bg-rose-100 text-rose-800", label: "alto" };
+
+  return (
+    <section className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-semibold text-slate-950">
+          Riesgo estimado a 10 años
+        </h2>
+        <span className={`rounded-md px-3 py-1 text-sm font-semibold ${tone.chip}`}>
+          Riesgo {tone.label}
+        </span>
+      </div>
+
+      <div className="flex items-end justify-between gap-4">
+        <p className="text-sm text-slate-500">
+          Probabilidad de fallecer en los próximos 10 años
+        </p>
+        <p className="text-4xl font-semibold text-slate-950">{pct}%</p>
+      </div>
+      <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${pct}%` }} />
+      </div>
+
+      <p className="text-sm leading-6 text-slate-600">
+        Estimación <strong>poblacional</strong>: de cada 100 personas con un perfil de
+        salud parecido al tuyo, alrededor de <strong>{pct}</strong> fallecerían en los
+        próximos 10 años. <strong>No</strong> es una predicción individual ni un
+        diagnóstico — es un promedio basado en datos de la encuesta NHANES.
+      </p>
+      <p className="text-xs leading-5 text-slate-400">
+        Proyecto académico/educativo. La predicción de mortalidad es sensible y solo
+        informativa; ante cualquier duda de salud, consulta a un profesional.
+      </p>
     </section>
   );
 }
@@ -726,6 +777,8 @@ export function SchemaForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [lastPayload, setLastPayload] = useState<PredictPayload | null>(null);
   const [predictResult, setPredictResult] = useState<PredictResult | null>(null);
+  const [mortalityResult, setMortalityResult] =
+    useState<MortalityResult | null>(null);
   const [explainState, setExplainState] = useState<ExplainState>({
     status: "idle",
     message: null
@@ -813,6 +866,7 @@ export function SchemaForm() {
     setFieldErrors({});
     setLastPayload(payload);
     setPredictResult(null);
+    setMortalityResult(null);
     setExplainResult(null);
     setExplainState({ status: "idle", message: null });
     setSubmitState({ status: "submitting", message: null });
@@ -850,6 +904,27 @@ export function SchemaForm() {
         status: "success",
         message: "Predicción recibida correctamente"
       });
+
+      // Riesgo de mortalidad a 10 años: modelo aparte. Necesita la edad como
+      // feature (RIDAGEYR = edad_cronologica). Best-effort: si no hay edad o
+      // falla, simplemente no se muestra esa tarjeta.
+      if (payload.edad_cronologica != null) {
+        try {
+          const mortResp = await fetchWithTimeout(MORTALITY_URL, {
+            body: JSON.stringify({
+              features: { ...payload.features, RIDAGEYR: payload.edad_cronologica }
+            }),
+            headers: { "Content-Type": "application/json" },
+            method: "POST"
+          });
+          if (mortResp.ok) {
+            setMortalityResult((await mortResp.json()) as MortalityResult);
+          }
+        } catch {
+          // silencioso: la mortalidad es complementaria
+        }
+      }
+
       setExplainState({
         status: "loading",
         message: "Cargando explicación SHAP"
@@ -978,6 +1053,8 @@ export function SchemaForm() {
       {predictResult && (
         <section className="grid gap-6">
           <ResultSummary result={predictResult} />
+
+          {mortalityResult && <MortalityCard result={mortalityResult} />}
 
           {explainState.status === "loading" && (
             <div className="rounded-md border border-slate-200 bg-white p-5 text-sm text-slate-700">
