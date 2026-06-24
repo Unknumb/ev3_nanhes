@@ -484,7 +484,8 @@ Tener esto listo es lo que separa un 80% de un 100% en el indicador de mayor pes
    (`nhanes_combined`), que une los tres ciclos del equipo (2005-2018) en un solo dataset y un solo
    par de modelos, con **36 features**: las 23 base + el **panel PhenoAge** de laboratorio (Levine
    2018) + 4 de cuestionario (salud autopercibida, tabaquismo, diabetes, evento cardiovascular). Eso
-   subió la regresión de R² 0.75→0.81 (MAE 7.3→6.0 años) y la clasificación a F1 0.92. La siguiente
+   subió la regresión a R² 0.80 (MAE ~6.8 años) y la clasificación a F1 0.92, con un balanceo
+   desacoplado por edad para no inflar la edad biológica de personas jóvenes. La siguiente
    mejora sería sumar PCR/inflamación restringiendo ciclos (hoy se omite por el hueco 2011-2014).
 2. **MLOps real:** versionado de modelos y métricas con un *model registry* (MLflow),
    reentrenamiento programado y monitoreo de *drift*.

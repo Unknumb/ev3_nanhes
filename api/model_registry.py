@@ -23,6 +23,7 @@ SCHEMA_PATH = Path(os.getenv("FEATURE_SCHEMA_PATH", _ROOT / "feature_schema.json
 SERVING_DIR = Path(os.getenv("MODEL_DIR", _ROOT / "data" / "09_serving"))
 CLF_PATH = SERVING_DIR / "model_clasificacion_2015.pkl"
 REG_PATH = SERVING_DIR / "model_regresion_2015.pkl"
+MORT_PATH = SERVING_DIR / "model_mortalidad_10y.pkl"  # MVP de mortalidad a 10 años
 
 LONGEVITY_THRESHOLD = 0.5
 
@@ -71,6 +72,27 @@ def load_models() -> None:
 
 def models_ready() -> bool:
     return CLF_PATH.exists() and REG_PATH.exists()
+
+
+# ── MVP de mortalidad a 10 años (modelo separado, ver docs/prediccion_mortalidad) ──
+@lru_cache(maxsize=1)
+def get_mortality_model() -> Any:
+    return _load_pickle(MORT_PATH)
+
+
+def mortality_ready() -> bool:
+    return MORT_PATH.exists()
+
+
+def predict_mortality(features: dict[str, Any]) -> dict:
+    """Riesgo de mortalidad a 10 años. Requiere RIDAGEYR (edad) entre las features."""
+    model = get_mortality_model()
+    # El modelo de mortalidad usa el contrato de 36 features + RIDAGEYR (edad).
+    cols = list(model.named_steps["prep"].feature_names_in_)
+    row = {code: features.get(code) for code in cols}
+    X = pd.DataFrame([row], columns=cols)
+    riesgo = float(model.predict_proba(X)[0, 1])
+    return {"riesgo_10y": round(riesgo, 4), "riesgo_pct": round(riesgo * 100, 1)}
 
 
 def _to_frame(features: dict[str, Any]) -> pd.DataFrame:

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   EXPLAIN_URL,
+  MORTALITY_URL,
   PREDICT_URL,
   REPORT_URL,
   SCHEMA_URL,
@@ -50,6 +51,11 @@ type PredictResult = {
   gap: number | null;
 };
 
+type MortalityResult = {
+  riesgo_10y: number;
+  riesgo_pct: number;
+};
+
 type SubmitState =
   | { status: "idle"; message: null }
   | { status: "submitting"; message: null }
@@ -80,6 +86,7 @@ type SchemaState =
 
 type ReportResult = {
   html: string;
+  pdf_base64: string | null;
   emailed: boolean;
   email_mode: string;
   guardado: boolean;
@@ -210,8 +217,7 @@ function getErrorsByField(detail: unknown) {
   return errorsByField;
 }
 
-function downloadHtml(html: string, filename = "informe-longevidad.html") {
-  const blob = new Blob([html], { type: "text/html" });
+function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -220,6 +226,18 @@ function downloadHtml(html: string, filename = "informe-longevidad.html") {
   anchor.click();
   anchor.remove();
   URL.revokeObjectURL(url);
+}
+
+// Descarga el informe como PDF (decodifica el base64). Si la API no devolvió PDF
+// (xhtml2pdf ausente), cae a HTML para no dejar al usuario sin informe.
+function downloadReport(result: ReportResult) {
+  if (result.pdf_base64) {
+    const bytes = Uint8Array.from(atob(result.pdf_base64), (c) => c.charCodeAt(0));
+    triggerDownload(new Blob([bytes], { type: "application/pdf" }), "informe-longevidad.pdf");
+    return true;
+  }
+  triggerDownload(new Blob([result.html], { type: "text/html" }), "informe-longevidad.html");
+  return false;
 }
 
 function formatYears(value: number | null | undefined) {
@@ -245,114 +263,136 @@ function getProbabilityPercent(probability: number) {
   return probability <= 1 ? probability * 100 : probability;
 }
 
-function getProbabilityTone(percent: number) {
-  if (percent > 70) {
-    return {
-      badge: "bg-emerald-100 text-emerald-800",
-      bar: "bg-emerald-600",
-      border: "border-emerald-200",
-      label: "Alta"
-    };
+function getGapSentence(gap: number | null) {
+  if (gap === null) {
+    return "No ingresaste tu edad real, así que no podemos compararla.";
   }
-
-  if (percent >= 40) {
-    return {
-      badge: "bg-amber-100 text-amber-900",
-      bar: "bg-amber-500",
-      border: "border-amber-200",
-      label: "Media"
-    };
+  const años = Math.round(Math.abs(gap));
+  if (gap > 1) {
+    return `Tu cuerpo aparenta unos ${años} año(s) más que tu edad real.`;
   }
-
-  return {
-    badge: "bg-red-100 text-red-800",
-    bar: "bg-red-600",
-    border: "border-red-200",
-    label: "Baja"
-  };
+  if (gap < -1) {
+    return `Tu cuerpo aparenta unos ${años} año(s) menos que tu edad real.`;
+  }
+  return "Tu edad biológica está alineada con tu edad real.";
 }
 
-function getGapLabel(gap: number | null) {
-  if (gap === null) {
-    return "Gap";
+function getSimilitudTexto(pct: number) {
+  if (pct < 40) {
+    return "Un valor bajo significa que tu perfil se ve más joven que el de una persona mayor — lo esperable y saludable.";
   }
-
-  if (gap > 0) {
-    return "Envejecimiento acelerado";
+  if (pct > 70) {
+    return "Un valor alto significa que tu perfil se parece al de una persona de 70 años o más.";
   }
-
-  if (gap < 0) {
-    return "Envejecimiento menor al cronológico";
-  }
-
-  return "Edad biológica alineada";
+  return "Un valor intermedio: tu perfil está entre ambos extremos.";
 }
 
 function ResultSummary({ result }: { result: PredictResult }) {
-  const probabilityPercent = getProbabilityPercent(result.probabilidad);
-  const clampedPercent = Math.max(0, Math.min(100, probabilityPercent));
-  const tone = getProbabilityTone(probabilityPercent);
+  const similitud = Math.round(
+    Math.max(0, Math.min(100, getProbabilityPercent(result.probabilidad)))
+  );
 
   return (
-    <section
-      className={`grid gap-6 rounded-md border ${tone.border} bg-white p-6 shadow-sm`}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-slate-500">
-            Resultado
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-            Evaluación de longevidad
-          </h2>
-        </div>
-        <span
-          className={`w-fit rounded-md px-3 py-1 text-sm font-semibold ${tone.badge}`}
-        >
-          Probabilidad {tone.label}
-        </span>
+    <section className="grid gap-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div>
+        <p className="text-sm font-medium uppercase tracking-wide text-emerald-700">
+          Tu resultado
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+          Tu edad biológica
+        </h2>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm text-slate-500">Edad cronológica</p>
+          <p className="text-sm text-slate-500">Tu edad real</p>
           <p className="mt-2 text-2xl font-semibold text-slate-950">
             {formatYears(result.edad_cronologica)}
           </p>
         </div>
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm text-slate-500">Edad biológica</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-950">
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+          <p className="text-sm text-emerald-700">Tu edad biológica</p>
+          <p className="mt-2 text-2xl font-semibold text-emerald-800">
             {formatYears(result.edad_biologica)}
           </p>
         </div>
         <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm text-slate-500">{getGapLabel(result.gap)}</p>
+          <p className="text-sm text-slate-500">Diferencia de edad</p>
           <p className="mt-2 text-2xl font-semibold text-slate-950">
             {formatGap(result.gap)}
           </p>
         </div>
       </div>
 
-      <div className="grid gap-3">
+      <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-900">
+        {getGapSentence(result.gap)}
+      </div>
+
+      {/* Aclara qué significa el % de "longevidad" para que no se malinterprete */}
+      <div className="grid gap-2 rounded-md border border-slate-200 p-4">
         <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="text-sm text-slate-500">Probabilidad de longevidad</p>
-            <p className="mt-1 text-5xl font-semibold text-slate-950">
-              {Math.round(probabilityPercent)}%
-            </p>
-          </div>
-          <p className="pb-1 text-sm font-medium text-slate-600">
-            {result.es_longevo ? "Clasifica como longevo" : "No clasifica como longevo"}
+          <p className="text-sm font-medium text-slate-700">
+            Parecido con un perfil de 70+ años
           </p>
+          <p className="text-3xl font-semibold text-slate-950">{similitud}%</p>
         </div>
-        <div className="h-4 overflow-hidden rounded-md bg-slate-200">
+        <div className="h-3 overflow-hidden rounded-full bg-slate-100">
           <div
-            className={`h-full rounded-md ${tone.bar}`}
-            style={{ width: `${clampedPercent}%` }}
+            className="h-full rounded-full bg-emerald-500"
+            style={{ width: `${similitud}%` }}
           />
         </div>
+        <p className="text-sm leading-6 text-slate-600">
+          Mide cuánto tus biomarcadores se parecen a los de una persona de 70 años
+          o más. <strong>No</strong> es tu probabilidad de vivir mucho.{" "}
+          {getSimilitudTexto(similitud)}
+        </p>
       </div>
+    </section>
+  );
+}
+
+function MortalityCard({ result }: { result: MortalityResult }) {
+  const pct = Math.round(Math.max(0, Math.min(100, result.riesgo_pct)));
+  // Tono medido: la mortalidad es sensible, evitamos rojo alarmista para riesgos bajos.
+  const tone =
+    pct < 10
+      ? { bar: "bg-emerald-500", chip: "bg-emerald-100 text-emerald-800", label: "bajo" }
+      : pct < 30
+        ? { bar: "bg-amber-500", chip: "bg-amber-100 text-amber-900", label: "moderado" }
+        : { bar: "bg-rose-500", chip: "bg-rose-100 text-rose-800", label: "alto" };
+
+  return (
+    <section className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-semibold text-slate-950">
+          Riesgo estimado a 10 años
+        </h2>
+        <span className={`rounded-md px-3 py-1 text-sm font-semibold ${tone.chip}`}>
+          Riesgo {tone.label}
+        </span>
+      </div>
+
+      <div className="flex items-end justify-between gap-4">
+        <p className="text-sm text-slate-500">
+          Probabilidad de fallecer en los próximos 10 años
+        </p>
+        <p className="text-4xl font-semibold text-slate-950">{pct}%</p>
+      </div>
+      <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${pct}%` }} />
+      </div>
+
+      <p className="text-sm leading-6 text-slate-600">
+        Estimación <strong>poblacional</strong>: de cada 100 personas con un perfil de
+        salud parecido al tuyo, alrededor de <strong>{pct}</strong> fallecerían en los
+        próximos 10 años. <strong>No</strong> es una predicción individual ni un
+        diagnóstico — es un promedio basado en datos de la encuesta NHANES.
+      </p>
+      <p className="text-xs leading-5 text-slate-400">
+        Proyecto académico/educativo. La predicción de mortalidad es sensible y solo
+        informativa; ante cualquier duda de salud, consulta a un profesional.
+      </p>
     </section>
   );
 }
@@ -472,17 +512,19 @@ function ReportActions({ payload }: { payload: PredictPayload }) {
       }
 
       if (!send) {
-        downloadHtml(body.html);
+        const esPdf = downloadReport(body);
         setReportState({
           status: "success",
-          message: "Descargamos tu informe. Ábrelo o imprímelo a PDF desde el navegador."
+          message: esPdf
+            ? "Descargamos tu informe en PDF. Revisa tu carpeta de descargas."
+            : "Descargamos tu informe. Ábrelo o imprímelo a PDF desde el navegador."
         });
         return;
       }
 
       const enviado =
         body.email_mode === "smtp"
-          ? `Te enviamos el informe a ${email.trim()}.`
+          ? `Te enviamos el informe en PDF a ${email.trim()}.`
           : "Informe generado (modo demo: el envío real de correo está desactivado).";
       const guardadoMsg = body.guardado
         ? " Guardamos esta predicción en tu historial."
@@ -506,8 +548,8 @@ function ReportActions({ payload }: { payload: PredictPayload }) {
       <div>
         <h2 className="text-xl font-semibold text-slate-950">Llévate tu informe</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Descárgalo al instante o recíbelo por correo. Si lo deseas, guardamos esta
-          predicción en tu historial (asociada a tu correo).
+          Descárgalo en <strong>PDF</strong> al instante o recíbelo por correo. Si lo
+          deseas, guardamos esta predicción en tu historial (asociada a tu correo).
         </p>
       </div>
 
@@ -735,6 +777,8 @@ export function SchemaForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [lastPayload, setLastPayload] = useState<PredictPayload | null>(null);
   const [predictResult, setPredictResult] = useState<PredictResult | null>(null);
+  const [mortalityResult, setMortalityResult] =
+    useState<MortalityResult | null>(null);
   const [explainState, setExplainState] = useState<ExplainState>({
     status: "idle",
     message: null
@@ -822,6 +866,7 @@ export function SchemaForm() {
     setFieldErrors({});
     setLastPayload(payload);
     setPredictResult(null);
+    setMortalityResult(null);
     setExplainResult(null);
     setExplainState({ status: "idle", message: null });
     setSubmitState({ status: "submitting", message: null });
@@ -859,6 +904,27 @@ export function SchemaForm() {
         status: "success",
         message: "Predicción recibida correctamente"
       });
+
+      // Riesgo de mortalidad a 10 años: modelo aparte. Necesita la edad como
+      // feature (RIDAGEYR = edad_cronologica). Best-effort: si no hay edad o
+      // falla, simplemente no se muestra esa tarjeta.
+      if (payload.edad_cronologica != null) {
+        try {
+          const mortResp = await fetchWithTimeout(MORTALITY_URL, {
+            body: JSON.stringify({
+              features: { ...payload.features, RIDAGEYR: payload.edad_cronologica }
+            }),
+            headers: { "Content-Type": "application/json" },
+            method: "POST"
+          });
+          if (mortResp.ok) {
+            setMortalityResult((await mortResp.json()) as MortalityResult);
+          }
+        } catch {
+          // silencioso: la mortalidad es complementaria
+        }
+      }
+
       setExplainState({
         status: "loading",
         message: "Cargando explicación SHAP"
@@ -987,6 +1053,8 @@ export function SchemaForm() {
       {predictResult && (
         <section className="grid gap-6">
           <ResultSummary result={predictResult} />
+
+          {mortalityResult && <MortalityCard result={mortalityResult} />}
 
           {explainState.status === "loading" && (
             <div className="rounded-md border border-slate-200 bg-white p-5 text-sm text-slate-700">

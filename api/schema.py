@@ -30,6 +30,19 @@ class PredictResponse(BaseModel):
     gap: float | None = None
 
 
+class AuthCodeRequest(BaseModel):
+    """Solicitud de codigo de acceso (login por correo)."""
+
+    email: str
+
+
+class AuthVerifyRequest(BaseModel):
+    """Verificacion del codigo de 6 digitos."""
+
+    email: str
+    code: str
+
+
 def validate_features(features: dict[str, float | int | None]) -> list[str]:
     """Valida required y rangos contra el schema. Devuelve lista de errores."""
     schema = load_schema()

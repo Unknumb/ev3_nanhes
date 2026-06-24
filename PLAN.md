@@ -114,7 +114,8 @@ docker-compose up        # api :8000, dashboard :8501, postgres :5432
 ## Deuda conocida
 - **Modelo unificado + features clínicas (HECHO):** `nhanes_combined` une todos los ciclos
   (2005-2018) en un solo modelo de producción con **36 features** (23 base + panel PhenoAge de
-  laboratorio + 4 de cuestionario). Entrenado y bendecido: F1 0.92 (clf), MAE 6.0 años / R² 0.81 (reg).
+  laboratorio + 4 de cuestionario). Entrenado y bendecido: F1 0.92 (clf), MAE 6.8 años / R² 0.80 (reg),
+  con balanceo desacoplado por edad para no inflar la edad biológica de jóvenes.
 - **PCR/inflamación (v2):** la hs-CRP solo existe 2015-2018 (hueco 2011-2014); para sumarla habría
   que restringir ciclos. Hoy se omite del panel PhenoAge a propósito.
 - Plumbing de mortalidad del 2017 heredado del merge (muerto) — no afecta al serving combinado.

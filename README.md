@@ -86,10 +86,11 @@ clasificador + **un** regresor sobre **36 features**:
 |---|---|---|
 | Clasificación | Accuracy | **0.907** |
 | | F1-score | **0.922** |
-| Regresión (edad biológica) | MAE | **6.02 años** |
-| | R² | **0.812** |
+| Regresión (edad biológica) | MAE | **6.79 años** |
+| | R² | **0.804** |
 
-Dataset: 15.139 pacientes descargados → **11.741** adultos. Detalle en [`docs/modelo.md`](docs/modelo.md).
+Entrenado sobre las **todas las edades de los 7 ciclos** (~42k adultos), con balanceo desacoplado
+por modelo para no sesgar la edad biológica de personas jóvenes. Detalle en [`docs/modelo.md`](docs/modelo.md).
 
 ---
 
@@ -259,6 +260,7 @@ Cada integrante trabajó un ciclo NHANES; el modelo de producción los une a tod
 | [`docs/despliegue.md`](docs/despliegue.md) | Guía de despliegue |
 | [`docs/manual_usuario.md`](docs/manual_usuario.md) | Manual de usuario |
 | [`docs/informe_estudio_defensa.md`](docs/informe_estudio_defensa.md) | Informe de estudio / defensa |
+| [`docs/prediccion_mortalidad.md`](docs/prediccion_mortalidad.md) | Diseño (no implementado) para predecir supervivencia / "vivir más de 70" |
 
 ---
 

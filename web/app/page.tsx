@@ -25,9 +25,10 @@ export default function Home() {
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-slate-700">
               Tu cuerpo puede ser más joven o más viejo que tu edad real. Responde unos
-              datos simples y una IA entrenada con miles de personas estima la edad que
-              aparenta tu cuerpo y tu probabilidad de llegar a viejo/a, y te explica en
-              palabras claras qué influyó.
+              datos simples y una IA entrenada con miles de personas te da{" "}
+              <strong>tres estimaciones</strong>: tu edad biológica, tu parecido con un
+              perfil longevo (70+), y tu riesgo de mortalidad a 10 años — con una
+              explicación clara de qué influyó.
             </p>
           </div>
 
@@ -58,10 +59,11 @@ export default function Home() {
         <section className="grid gap-6">
           <div>
             <h2 className="text-2xl font-semibold text-slate-950">
-              Qué tan bien funciona el modelo
+              Qué tan bien funcionan los modelos
             </h2>
             <p className="mt-2 text-sm text-slate-600">
-              Medido sobre datos que el modelo nunca vio durante el entrenamiento.
+              Tres modelos (edad biológica, longevidad y mortalidad a 10 años), medidos
+              sobre datos que nunca vieron durante el entrenamiento.
             </p>
           </div>
           <ModelStats />
@@ -75,9 +77,10 @@ export default function Home() {
               Calcula tu edad biológica
             </h2>
             <p className="mt-2 text-base leading-7 text-slate-700">
-              Responde unas preguntas fáciles sobre tu salud y te decimos qué edad
-              aparenta tu cuerpo y qué tan probable es que llegues a longevo/a (70+
-              años). Toma unos 2 minutos y no necesitas saber nada de tecnología.
+              Responde unas preguntas fáciles sobre tu salud y te damos tres
+              estimaciones: tu edad biológica, tu parecido con un perfil longevo (70+) y
+              tu riesgo de mortalidad a 10 años. Toma unos 2 minutos y no necesitas saber
+              nada de tecnología.
             </p>
 
             <ol className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -94,8 +97,8 @@ export default function Home() {
                 },
                 {
                   n: "3",
-                  t: "Mira tu resultado",
-                  d: "Tu edad biológica, tu probabilidad y qué factores influyeron."
+                  t: "Mira tus 3 resultados",
+                  d: "Edad biológica, longevidad y riesgo de mortalidad a 10 años, con qué influyó."
                 }
               ].map((step) => (
                 <li

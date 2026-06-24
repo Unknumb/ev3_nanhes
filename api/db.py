@@ -69,6 +69,27 @@ class Prediction(Base):
     consent_save: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class LoginCode(Base):
+    """Codigo de un solo uso para el login por correo (magic-link).
+
+    Guarda solo el SHA-256 del codigo (nunca el codigo en claro), con expiracion
+    y limite de intentos. Verlo aqui no permite iniciar sesion: hay que recibir el
+    codigo en el inbox del correo, que es la prueba de propiedad.
+    """
+
+    __tablename__ = "login_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(254), index=True)
+    code_hash: Mapped[str] = mapped_column(String(64))  # sha256 hex
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc)
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+
+
 @lru_cache(maxsize=1)
 def get_engine():
     """Engine perezoso (memoizado). Crea la carpeta del sqlite local si hace falta."""
@@ -156,7 +177,7 @@ def save_prediction(
     mi historial"). Sin consentimiento la fila queda anonima: cuenta para los
     agregados del dashboard pero no es recuperable por correo.
     """
-    guardar_email = email if (consent_save and email) else None
+    guardar_email = email.strip().lower() if (consent_save and email) else None
     try:
         _ensure_tables()
         with Session(get_engine()) as session:
@@ -181,6 +202,7 @@ def save_prediction(
 
 def get_history(email: str, limit: int = 50) -> list[dict]:
     """Historial de un correo. Solo filas con consent_save=True (privacidad)."""
+    email = email.strip().lower()
     _ensure_tables()
     with Session(get_engine()) as session:
         filas = list(
@@ -204,6 +226,74 @@ def get_history(email: str, limit: int = 50) -> list[dict]:
         }
         for r in filas
     ]
+
+
+MAX_CODE_ATTEMPTS = 5
+
+
+def _as_utc(dt: datetime) -> datetime:
+    """Normaliza un datetime (posiblemente naive desde la BD) a UTC aware."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+def save_login_code(email: str, code_hash: str, expires_at: datetime) -> None:
+    """Invalida los codigos activos del correo y guarda el nuevo. Nunca lanza al caller del flujo."""
+    _ensure_tables()
+    with Session(get_engine()) as session:
+        session.query(LoginCode).filter(
+            LoginCode.email == email, LoginCode.used.is_(False)
+        ).update({LoginCode.used: True})
+        session.add(
+            LoginCode(email=email, code_hash=code_hash, expires_at=expires_at)
+        )
+        session.commit()
+
+
+def seconds_since_last_code(email: str) -> float | None:
+    """Segundos desde el ultimo codigo emitido para el correo (para rate-limit)."""
+    _ensure_tables()
+    with Session(get_engine()) as session:
+        ultimo = session.scalar(
+            select(LoginCode.created_at)
+            .where(LoginCode.email == email)
+            .order_by(LoginCode.created_at.desc())
+            .limit(1)
+        )
+    if ultimo is None:
+        return None
+    return (datetime.now(timezone.utc) - _as_utc(ultimo)).total_seconds()
+
+
+def verify_login_code(email: str, code_hash: str) -> str:
+    """Verifica el codigo de un correo. Devuelve: ok | bad | expired | locked | none.
+
+    Consume el codigo (lo marca usado) solo si coincide. Best-effort en intentos:
+    incrementa `attempts` en fallos y bloquea tras MAX_CODE_ATTEMPTS.
+    """
+    _ensure_tables()
+    now = datetime.now(timezone.utc)
+    with Session(get_engine()) as session:
+        codigo = session.scalars(
+            select(LoginCode)
+            .where(LoginCode.email == email, LoginCode.used.is_(False))
+            .order_by(LoginCode.created_at.desc())
+            .limit(1)
+        ).first()
+        if codigo is None:
+            return "none"
+        if now > _as_utc(codigo.expires_at):
+            return "expired"
+        if codigo.attempts >= MAX_CODE_ATTEMPTS:
+            codigo.used = True
+            session.commit()
+            return "locked"
+        if codigo.code_hash == code_hash:
+            codigo.used = True
+            session.commit()
+            return "ok"
+        codigo.attempts += 1
+        session.commit()
+        return "bad"
 
 
 def get_aggregates(hist_bins: int = 10) -> dict:

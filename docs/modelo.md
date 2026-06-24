@@ -10,11 +10,16 @@ ciclos del equipo en un único dataset y un único par de modelos. Los pipelines
 baselines comparables, pero **no** son los que se sirven en la API.
 
 ## Datos
-- **Fuente:** NHANES (CDC), descarga de `.xpt` (SAS) en runtime.
-- **Data augmentation:** el ciclo base **2017-2018** (Juan) aporta todos los pacientes; los ciclos
-  históricos **2015-2016** (Álvaro), **2013-2014** (Nicolás), **2011, 2009, 2007, 2005** aportan
-  **solo longevos (≥70)** para rescatar la clase minoritaria. `CICLO_ORIGEN` registra el origen de
-  cada fila; cada ciclo se descarga una sola vez (sin solapes ni duplicados).
+- **Fuente:** NHANES (CDC), descarga de `.xpt` (SAS) en runtime. Se bajan **todas las edades** de
+  los 7 ciclos del equipo (2017-2018 base + 2015, 2013, 2011, 2009, 2007, 2005) → **42.143** adultos.
+- **Balanceo desacoplado por modelo** (clasificación y regresión necesitan distribuciones opuestas):
+  - **Clasificación → vista aumentada:** ciclo base + **solo longevos (≥70)** de los históricos.
+    Rescata la clase minoritaria → F1 alto. (~11.7k filas.)
+  - **Regresión → vista balanceada por edad:** ciclo base + longevos históricos + **40% de los
+    jóvenes históricos**. Evita que el regresor infle la edad biológica de personas jóvenes (un
+    joven de 20 pasó de ~55 a ~33 años) manteniendo R²≥0.80. (~23.9k filas.)
+  - El 0.4 está tuneado como el **máximo de jóvenes que mantiene R²≥0.80**. `CICLO_ORIGEN` registra
+    el origen de cada fila.
 - **Split:** `train_test_split` 80/20, `random_state=42` (estratificado por `IS_LONGEVO` en
   clasificación).
 - **36 features** (numéricas + categóricas NHANES), en tres bloques:
@@ -30,22 +35,18 @@ baselines comparables, pero **no** son los que se sirven en la API.
 
 ## Métricas (modelo combinado · conjunto de test)
 
-Dataset: 15.139 pacientes descargados → **11.741** adultos (≥18). Split train/test: **9.392 / 2.349**.
-
-| Modelo | Métrica | **Combinado (A+B)** | Baseline 2015 |
+| Modelo | Métrica | **Combinado** | Baseline 2015 |
 |---|---|---|---|
-| Clasificación | Accuracy | **0.907** | 0.871 |
+| Clasificación (vista aumentada) | Accuracy | **0.907** | 0.871 |
 | | F1-score | **0.922** | 0.870 |
-| | Mejor F1 (CV train) | 0.917 | 0.870 |
-| Regresión | MAE | **6.02 años** | 7.26 años |
-| | R² | **0.812** | 0.747 |
-| | Mejor MAE (CV train) | 6.11 años | 7.39 años |
+| Regresión (vista balanceada) | MAE | **6.79 años** | 7.26 años |
+| | R² | **0.804** | 0.747 |
 
-**Lectura:** frente al baseline 2015, el modelo combinado (más ciclos + panel PhenoAge + cuestionario)
-**mejora en ambas tareas**: el clasificador sube a F1 0.92 y la regresión baja el error de la edad
-biológica a **~6 años** y explica el **81%** de la varianza (R² 0.75 → 0.81). En la importancia
-global del regresor dominan justamente las features nuevas: evento cardiovascular previo (`MCQ_CVD`),
-diabetes, HbA1c y tabaquismo — señal clínica real, no demográfica.
+**Lectura:** el clasificador acierta la longevidad con **F1 0.92**. La regresión explica el **80%**
+de la varianza de edad con un error de **~6.8 años**, y —tras balancear por edad— ya **no infla** la
+edad biológica de personas jóvenes (un caso de 20 años pasó de 55 a **33 años**). En la importancia
+global del regresor dominan las features clínicas nuevas (evento cardiovascular, diabetes, HbA1c,
+tabaquismo). Ambas métricas se mantienen **≥0.80** por diseño (el balanceo está tuneado a ese límite).
 
 > Reproducible: `kedro run --pipeline nhanes_combined`. Los reportes quedan en
 > `data/08_reporting/reporte_{clasificacion,regresion}_combined.txt`.

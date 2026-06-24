@@ -27,7 +27,10 @@ os.environ["MODEL_DIR"] = str(_TMP_DIR)
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DIR / 'test_predictions.db'}"
 # Mailer en modo demo aislado: escribe a un outbox temporal, no al repo.
 os.environ["MAIL_OUTBOX_DIR"] = str(_TMP_DIR / "outbox")
-os.environ.pop("SMTP_HOST", None)  # forzar modo demo aunque el entorno tenga SMTP
+# Forzar modo demo: vaciar (no solo pop) las SMTP_* para que el .env del repo no
+# las reponga al importar `api` (load_dotenv no sobrescribe vars ya definidas).
+for _k in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD"):
+    os.environ[_k] = ""
 
 import numpy as np
 import pandas as pd
@@ -35,7 +38,7 @@ from fastapi.testclient import TestClient
 from sklearn.pipeline import Pipeline as SkPipeline
 from xgboost import XGBClassifier, XGBRegressor
 
-from api import db
+from api import auth, db
 from api.main import app
 from ev3_nhanes.pipelines.nhanes_combined import nodes as ncomb
 
@@ -294,19 +297,36 @@ def test_report_email_invalido_422(client):
     assert r.status_code == 422
 
 
-# --- /history (guardar por correo, sin login) --------------------------------
+# --- /history (protegido por login de correo) --------------------------------
 
 
-def test_history_requiere_consentimiento(client):
-    email = "guardo@example.com"
-    # Sin guardar=True: NO debe aparecer en el historial.
-    client.post("/report", json={"features": VALID_FEATURES, "email": email})
-    r = client.get("/history", params={"email": email})
-    assert r.status_code == 200
-    assert r.json()["predicciones"] == []
+def _auth(email: str) -> dict:
+    """Header Authorization con un token de sesion valido para `email`."""
+    return {"Authorization": f"Bearer {auth.make_token(email.strip().lower())}"}
 
 
-def test_history_con_consentimiento_lista(client):
+def _ultimo_codigo(email: str) -> str:
+    """Lee el codigo del correo de ESE email escrito al outbox (modo demo)."""
+    import glob
+    import os
+    import re
+
+    slug = re.sub(r"[^a-zA-Z0-9._-]+", "_", email.strip().lower())
+    archivos = sorted(
+        glob.glob(str(_TMP_DIR / "outbox" / f"*_{slug}.html")),
+        key=os.path.getmtime,
+    )
+    html = Path(archivos[-1]).read_text(encoding="utf-8")
+    return re.search(r">(\d{6})<", html).group(1)
+
+
+def test_history_sin_token_401(client):
+    # Sin login no se puede ver ningun historial (cierra la fuga de datos).
+    r = client.get("/history")
+    assert r.status_code == 401
+
+
+def test_history_con_token_lista_consentidas(client):
     email = "guardo2@example.com"
     client.post(
         "/report",
@@ -317,7 +337,7 @@ def test_history_con_consentimiento_lista(client):
             "guardar": True,
         },
     )
-    r = client.get("/history", params={"email": email})
+    r = client.get("/history", headers=_auth(email))
     assert r.status_code == 200
     body = r.json()
     assert body["email"] == email
@@ -325,6 +345,53 @@ def test_history_con_consentimiento_lista(client):
     assert "edad_biologica" in body["predicciones"][0]
 
 
-def test_history_email_invalido_422(client):
-    r = client.get("/history", params={"email": "x"})
-    assert r.status_code == 422
+def test_history_sin_consentimiento_vacio(client):
+    email = "noguardo@example.com"
+    client.post("/report", json={"features": VALID_FEATURES, "email": email})
+    r = client.get("/history", headers=_auth(email))
+    assert r.status_code == 200
+    assert r.json()["predicciones"] == []
+
+
+def test_history_no_ve_el_correo_de_otro(client):
+    # SEGURIDAD: con el token de B NO se ve el historial de A.
+    a, b = "duenio_a@example.com", "intruso_b@example.com"
+    client.post(
+        "/report",
+        json={"features": VALID_FEATURES, "email": a, "guardar": True},
+    )
+    r = client.get("/history", headers=_auth(b))
+    assert r.status_code == 200
+    assert r.json()["predicciones"] == []
+
+
+# --- /auth (login por codigo) -------------------------------------------------
+
+
+def test_auth_request_code_demo_ok(client):
+    r = client.post("/auth/request-code", json={"email": "login@example.com"})
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+
+
+def test_auth_verify_codigo_malo_401(client):
+    client.post("/auth/request-code", json={"email": "login2@example.com"})
+    r = client.post(
+        "/auth/verify", json={"email": "login2@example.com", "code": "000000"}
+    )
+    assert r.status_code == 401
+
+
+def test_auth_flow_completo_devuelve_token(client):
+    email = "flujo@example.com"
+    assert (
+        client.post("/auth/request-code", json={"email": email}).status_code == 200
+    )
+    code = _ultimo_codigo(email)
+    r = client.post("/auth/verify", json={"email": email, "code": code})
+    assert r.status_code == 200
+    token = r.json()["token"]
+    # El token sirve para entrar al historial propio.
+    h = client.get("/history", headers={"Authorization": f"Bearer {token}"})
+    assert h.status_code == 200
+    assert h.json()["email"] == email

@@ -35,6 +35,13 @@ services:
       EV3_ROOT: /app
       CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-nhanes}:${POSTGRES_PASSWORD:-nhanes_pass}@postgres:5432/${POSTGRES_DB:-nhanes_db}
+      # Login (firma de sesiones) y correo real (vacíos = modo demo). Se toman del .env.
+      SECRET_KEY: ${SECRET_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     depends_on:
       postgres:
         condition: service_healthy
