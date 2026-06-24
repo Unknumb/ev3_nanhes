@@ -80,7 +80,7 @@ export function GlobalImportanceChart({
     <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
       <div>
         <h2 className="text-2xl font-semibold text-slate-950">
-          ¿En qué se fija más el modelo?
+          ¿En qué se fija el modelo de longevidad?
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           De todo lo que aprendió con miles de personas, estos son los factores de

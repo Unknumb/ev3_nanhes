@@ -15,6 +15,7 @@ function buildCards(reports: Record<string, string>): StatCard[] {
   const f1 = findMetric(reports, "f1");
   const mae = findMetric(reports, "mae");
   const r2 = findMetric(reports, "r2");
+  const auc = findMetric(reports, "roc_auc"); // solo el modelo de mortalidad lo reporta
 
   const cards: StatCard[] = [];
 
@@ -41,6 +42,14 @@ function buildCards(reports: Record<string, string>): StatCard[] {
       value: `${pct}%`,
       title: "Variabilidad explicada",
       blurb: "del envejecimiento queda capturado por el modelo."
+    });
+  }
+
+  if (auc) {
+    cards.push({
+      value: Number(auc).toFixed(2),
+      title: "Mortalidad a 10 años (AUC)",
+      blurb: "qué tan bien distingue el riesgo de fallecer (0.5 azar, 1 perfecto)."
     });
   }
 

@@ -240,7 +240,7 @@ export default function MetricsPage() {
             NHANES Longevity
           </p>
           <h1 className="text-4xl font-semibold leading-tight sm:text-5xl">
-            ¿Qué tan bueno es el modelo?
+            ¿Qué tan buenos son los modelos?
           </h1>
         </div>
 
@@ -248,14 +248,16 @@ export default function MetricsPage() {
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-950">
           <p className="font-semibold">En simple 👇</p>
           <p className="mt-1">
-            Entrenamos dos modelos de inteligencia artificial con datos de salud
-            reales de <strong>~11.700 personas</strong> (encuesta NHANES de EE. UU.).
-            Aquí te mostramos <strong>qué tan bien funcionan</strong>, sin tecnicismos.
+            Entrenamos <strong>tres modelos</strong> de inteligencia artificial con
+            datos de salud reales de la encuesta NHANES (EE. UU.): tu{" "}
+            <strong>edad biológica</strong>, tu <strong>parecido con un perfil 70+</strong>{" "}
+            y tu <strong>riesgo de mortalidad a 10 años</strong>. Aquí te mostramos qué
+            tan bien funcionan, sin tecnicismos.
           </p>
           <p className="mt-2 text-emerald-800">
             Las <strong>barras</strong> van de 0 a 100%: cuanto más llenas y
-            verdes, mejor. Los valores son sobre datos que el modelo{" "}
-            <strong>nunca vio</strong> al entrenar (su «examen final»).
+            verdes, mejor. Los valores son sobre datos que los modelos{" "}
+            <strong>nunca vieron</strong> al entrenar (su «examen final»).
           </p>
         </div>
 
