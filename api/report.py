@@ -28,9 +28,9 @@ _SIM_BAJA = 40
 _SIM_ALTA = 70
 
 _DISCLAIMER = (
-    "Proyecto academico/educativo. No es consejo medico ni diagnostico. "
-    "La 'edad biologica' es una estimacion poblacional a partir de biomarcadores "
-    "NHANES (CDC), no una medicion clinica."
+    "Proyecto académico/educativo. No es consejo médico ni diagnóstico. "
+    "La 'edad biológica' es una estimación poblacional a partir de biomarcadores "
+    "NHANES (CDC), no una medición clínica."
 )
 
 
@@ -44,31 +44,31 @@ def _fmt(value: Any) -> str:
 
 def _gap_texto(gap: float | None) -> str:
     if gap is None:
-        return "No ingresaste tu edad real, asi que no podemos comparar."
+        return "No ingresaste tu edad real, así que no podemos comparar."
     if gap > 1:
-        return f"Tu cuerpo aparenta unos {abs(gap):.0f} ano(s) MAS que tu edad real."
+        return f"Tu cuerpo aparenta unos {abs(gap):.0f} año(s) MÁS que tu edad real."
     if gap < -1:
-        return f"Tu cuerpo aparenta unos {abs(gap):.0f} ano(s) MENOS que tu edad real."
-    return "Tu edad biologica esta alineada con tu edad real."
+        return f"Tu cuerpo aparenta unos {abs(gap):.0f} año(s) MENOS que tu edad real."
+    return "Tu edad biológica está alineada con tu edad real."
 
 
 def _similitud_texto(pct: int) -> str:
     """Explica en simple qué significa el % de 'longevidad' (parecido con 70+)."""
     if pct < _SIM_BAJA:
         detalle = (
-            "Un valor bajo significa que tu perfil se ve mas joven que el de una "
+            "Un valor bajo significa que tu perfil se ve más joven que el de una "
             "persona mayor, lo cual es lo esperable y saludable."
         )
     elif pct > _SIM_ALTA:
         detalle = (
             "Un valor alto significa que tu perfil se parece al de una persona de "
-            "70 anos o mas."
+            "70 años o más."
         )
     else:
-        detalle = "Un valor intermedio: tu perfil esta entre ambos extremos."
+        detalle = "Un valor intermedio: tu perfil está entre ambos extremos."
     return (
-        "Mide cuanto tus biomarcadores se parecen a los de una persona de 70 anos "
-        "o mas. <b>No</b> es tu probabilidad de vivir mucho. " + detalle
+        "Mide cuánto tus biomarcadores se parecen a los de una persona de 70 años "
+        "o más. <b>No</b> es tu probabilidad de vivir mucho. " + detalle
     )
 
 
@@ -107,7 +107,7 @@ def _tabla_factores(explain: dict | None, schema: dict) -> str:
         if c["empuja"] == "longevo":
             sentido, color = "Perfil de mayor edad", "#b45309"
         else:
-            sentido, color = "Perfil mas joven", "#047857"
+            sentido, color = "Perfil más joven", "#047857"
         filas.append(
             f"<tr><td style='padding:6px 10px;border-bottom:1px solid #e2e8f0'>{html.escape(str(nombre))}</td>"
             f"<td style='padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;color:{color}'>"
@@ -115,8 +115,8 @@ def _tabla_factores(explain: dict | None, schema: dict) -> str:
         )
     cuerpo = "".join(filas)
     return f"""
-    <h2 style="font-size:17px;color:#0f172a;margin:26px 0 4px">Que mas influyo en tu resultado</h2>
-    <p style="margin:0 0 8px;color:#64748b;font-size:13px">Los factores que mas pesaron al estimar tu edad biologica.</p>
+    <h2 style="font-size:16px;color:#0f172a;margin:22px 0 4px">Qué más influyó en tu resultado</h2>
+    <p style="margin:0 0 8px;color:#64748b;font-size:13px">Los factores que más pesaron al estimar tu edad biológica.</p>
     <table style="width:100%;border-collapse:collapse;font-size:14px">{cuerpo}</table>
     """
 
@@ -134,7 +134,7 @@ def build_report_html(
     edad_bio = result.get("edad_biologica")
     edad_cron = result.get("edad_cronologica")
     gap = result.get("gap")
-    edad_cron_str = f"{_fmt(edad_cron)} anos" if edad_cron is not None else "—"
+    edad_cron_str = f"{_fmt(edad_cron)} años" if edad_cron is not None else "—"
 
     return f"""<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
@@ -146,8 +146,8 @@ def build_report_html(
     <p style="color:#64748b;font-size:12px;margin:0 0 16px">Generado el {fecha}</p>
 
     <div style="background:#f1f5f9;padding:14px;margin-bottom:8px">
-      <p style="margin:0;color:#64748b;font-size:12px">Tu edad biologica estimada</p>
-      <p style="margin:4px 0 0;font-size:28px;font-weight:bold;color:#047857">{_fmt(edad_bio)} anos</p>
+      <p style="margin:0;color:#64748b;font-size:12px">Tu edad biológica estimada</p>
+      <p style="margin:4px 0 0;font-size:28px;font-weight:bold;color:#047857">{_fmt(edad_bio)} años</p>
     </div>
     <div style="background:#f1f5f9;padding:14px">
       <p style="margin:0;color:#64748b;font-size:12px">Tu edad real</p>
@@ -157,12 +157,12 @@ def build_report_html(
     <div style="margin-top:12px;background:#ecfdf5;border:1px solid #a7f3d0;padding:12px">
       <p style="margin:0;font-weight:bold;font-size:15px">{html.escape(_gap_texto(gap))}</p>
       <p style="margin:6px 0 0;color:#475569;font-size:12px">
-        La "edad biologica" es cuanto aparenta tu cuerpo segun tus biomarcadores,
-        comparado con la poblacion. Es una estimacion, no un diagnostico.
+        La "edad biológica" es cuánto aparenta tu cuerpo según tus biomarcadores,
+        comparado con la población. Es una estimación, no un diagnóstico.
       </p>
     </div>
 
-    <h2 style="font-size:16px;margin:22px 0 4px">Parecido con un perfil de 70+ anos: {prob_pct}%</h2>
+    <h2 style="font-size:16px;margin:22px 0 4px">Parecido con un perfil de 70+ años: {prob_pct}%</h2>
     <p style="margin:4px 0 0;color:#475569;font-size:12px;line-height:1.5">{_similitud_texto(prob_pct)}</p>
 
     {_tabla_factores(explain, schema)}
@@ -182,12 +182,12 @@ def build_email_body(result: dict[str, Any]) -> str:
     return (
         "<div style=\"font-family:Helvetica,Arial,sans-serif;max-width:520px;color:#0f172a\">"
         "<h2 style=\"color:#047857\">Tu informe de longevidad</h2>"
-        f"<p>Tu edad biologica estimada es <b>{_fmt(edad_bio)} anos</b>. "
+        f"<p>Tu edad biológica estimada es <b>{_fmt(edad_bio)} años</b>. "
         f"{html.escape(_gap_texto(gap))}</p>"
         "<p>Adjuntamos tu <b>informe completo en PDF</b> con el detalle y los "
-        "factores que mas influyeron.</p>"
-        "<p style=\"color:#94a3b8;font-size:12px\">Proyecto academico/educativo. "
-        "No es consejo medico ni diagnostico.</p></div>"
+        "factores que más influyeron.</p>"
+        "<p style=\"color:#94a3b8;font-size:12px\">Proyecto académico/educativo. "
+        "No es consejo médico ni diagnóstico.</p></div>"
     )
 
 

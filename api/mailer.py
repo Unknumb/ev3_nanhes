@@ -133,12 +133,12 @@ def send_login_code(to: str, code: str) -> dict:
     """Envia el codigo de acceso de un solo uso (login por correo)."""
     html = (
         "<div style=\"font-family:system-ui,sans-serif;max-width:480px;margin:auto\">"
-        "<h2 style=\"color:#047857\">Tu codigo de acceso</h2>"
-        "<p>Usa este codigo para entrar a tu historial en NHANES Longevity:</p>"
+        "<h2 style=\"color:#047857\">Tu código de acceso</h2>"
+        "<p>Usa este código para entrar a tu historial en NHANES Longevity:</p>"
         f"<p style=\"font-size:32px;font-weight:700;letter-spacing:6px;"
         f"background:#ecfdf5;color:#065f46;padding:16px;border-radius:12px;"
         f"text-align:center\">{code}</p>"
         "<p style=\"color:#64748b;font-size:14px\">Vence en 10 minutos. "
         "Si no lo pediste, ignora este correo.</p></div>"
     )
-    return send_html(to, "Tu codigo de acceso - NHANES Longevity", html)
+    return send_html(to, "Tu código de acceso - NHANES Longevity", html)
