@@ -13,8 +13,14 @@ Endpoints:
   GET  /metrics            -> reportes de entrenamiento (accuracy / MAE) en texto
   GET  /aggregates         -> agregados del historial para el dashboard ejecutivo
 
-Ejecutar desde la raiz del repo:
-  uvicorn api.main:app --reload
+Ejecutar desde la raiz del repo (local):
+  uvicorn api.main:app --reload          # escucha solo en 127.0.0.1
+
+En un servidor (EC2/produccion) hay que escuchar en TODAS las interfaces, o las
+peticiones de afuera nunca llegan (se quedan colgadas hasta el timeout del front):
+  uvicorn api.main:app --host 0.0.0.0 --port 8000
+  # ademas: exportar CORS_ORIGINS con el origen publico del frontend (ver abajo)
+  # y abrir el puerto 8000 en el Security Group de EC2.
 """
 
 from __future__ import annotations
@@ -59,6 +65,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# En produccion DEBE setearse CORS_ORIGINS con el origen publico del frontend
+# (p.ej. "http://<IP_o_dominio>" o "https://tuedad.me"); el default solo sirve
+# para desarrollo local y el navegador bloqueara las llamadas del front desplegado.
 _raw_origins = os.getenv(
     "CORS_ORIGINS",
     "http://localhost:3000,http://127.0.0.1:3000",

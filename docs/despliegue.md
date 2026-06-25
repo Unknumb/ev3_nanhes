@@ -82,10 +82,74 @@ make down                # bajar
 - El servicio **web** (Next.js, `:3000`) está listo en `docker-compose.yml` pero
   comentado: se activa cuando exista `web/Dockerfile` (pendiente de Nicolás).
 
+## 5. Despliegue en EC2 (producción)
+
+Esquema típico: una instancia EC2 sirve el **frontend** (Next.js `:3000` o detrás
+de Nginx `:80`) y el **backend** (uvicorn `:8000`), con la BD en Supabase.
+
+**a) Backend — escuchar en todas las interfaces (no `127.0.0.1`):**
+```bash
+export DATABASE_URL="postgresql://...supabase.../postgres?sslmode=require"
+export CORS_ORIGINS="http://<IP_o_dominio_del_front>"   # ¡el origen del FRONT!
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+Si lo arrancas con `--reload` (sin `--host`), uvicorn escucha solo en loopback y
+las peticiones de afuera **se cuelgan** hasta el timeout del front (8 s). Con Docker
+ya viene bien (`api/Dockerfile` usa `--host 0.0.0.0`).
+
+**b) Frontend — hornear la URL pública del backend y reconstruir:**
+```bash
+# web/.env.local (o build-arg del Dockerfile)
+NEXT_PUBLIC_API_URL=http://<IP_o_dominio_del_back>:8000
+cd web && npm run build && npm run start    # NEXT_PUBLIC_* se fija en build, no runtime
+```
+
+**c) Security Group (Inbound rules):** abrir los puertos que se exponen:
+| Puerto | Para |
+|---|---|
+| 22 | SSH |
+| 80 / 443 | Frontend (HTTP/HTTPS) |
+| 3000 | Frontend si se sirve directo con `npm start` |
+| 8000 | Backend (uvicorn) — **si falta, las llamadas del front se cuelgan** |
+
+**d) IP pública estable.** La IP pública de EC2 **cambia al detener/arrancar** la
+instancia. Como `NEXT_PUBLIC_API_URL` queda horneada en el build, tras un reinicio
+el front apuntaría a una IP muerta. Asigna una **Elastic IP** o usa un **dominio**
+(ver sección siguiente).
+
+### Dominio propio (`tuedad.me`)
+Con un dominio evitas el problema de la IP y puedes poner HTTPS. Pasos:
+
+1. **Elastic IP:** en EC2 → *Elastic IPs* → *Allocate* → *Associate* a la instancia.
+   Esa IP ya no cambia entre reinicios.
+2. **DNS** (en el panel donde administras `tuedad.me`): crear registros **A** → la Elastic IP:
+   - `tuedad.me` y `www` → frontend.
+   - `api.tuedad.me` → backend (mismo servidor, distinto puerto/Nginx).
+3. **Reverse proxy (Nginx)** en la instancia para servir todo por `:443` con un solo
+   certificado (recomendado): `tuedad.me` → front `:3000`, `api.tuedad.me` → back `:8000`.
+4. **HTTPS gratis** con Certbot:
+   ```bash
+   sudo certbot --nginx -d tuedad.me -d www.tuedad.me -d api.tuedad.me
+   ```
+5. Re-hornear el front con el dominio y actualizar CORS:
+   ```bash
+   # web/.env.local
+   NEXT_PUBLIC_API_URL=https://api.tuedad.me
+   # backend
+   export CORS_ORIGINS="https://tuedad.me,https://www.tuedad.me"
+   ```
+
+> ⚠️ **No mezclar HTTP y HTTPS.** Si el front se sirve por `https://` y el backend
+> por `http://`, el navegador bloquea las llamadas (*mixed content*). O ambos HTTPS
+> (con dominio + Certbot) o ambos HTTP.
+
 ## Verificación
 ```bash
 curl http://localhost:8000/health
 # {"status":"ok","models_ready":true,"db_ready":true}
+
+# Desde FUERA del servidor (tu máquina), comprobar que el backend es alcanzable:
+curl -i http://<IP_o_dominio_del_back>:8000/schema
 ```
 
 ## Troubleshooting
@@ -97,3 +161,7 @@ curl http://localhost:8000/health
 | Error SSL contra Supabase | Falta TLS | Agregar `?sslmode=require` a la URL |
 | Conexiones agotadas en Supabase | Se usó la conexión directa (5432) | Usar el pooler (6543, transaction) |
 | `docker compose` falla al montar modelos | Falta `make train` en el host | Entrenar antes de `make up` |
+| Front carga pero llamadas en **(cancelado)** a los ~8 s | El backend no responde: puerto 8000 cerrado en el Security Group, o uvicorn en `127.0.0.1` | Abrir 8000 en Inbound rules y arrancar con `--host 0.0.0.0`. Probar `curl http://<IP>:8000/schema` desde fuera |
+| Llamadas fallan al instante con error **CORS** en consola | `CORS_ORIGINS` no incluye el origen público del front | Exportar `CORS_ORIGINS="http://<IP_o_dominio_del_front>"` y reiniciar el backend |
+| Funcionaba y dejó de funcionar tras reiniciar EC2 | La IP pública cambió; el build del front apunta a la IP vieja | Asignar **Elastic IP** o usar dominio, y re-hornear el front |
+| Front en HTTPS, llamadas bloqueadas (*mixed content*) | Backend en HTTP desde una página HTTPS | Servir el backend por HTTPS (dominio + Certbot) |
