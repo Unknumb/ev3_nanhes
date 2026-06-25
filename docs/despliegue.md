@@ -127,11 +127,8 @@ Con un dominio evitas el problema de la IP y puedes poner HTTPS. Pasos:
    - `api.tuedad.me` → backend (mismo servidor, distinto puerto/Nginx).
 3. **Reverse proxy (Nginx)** en la instancia para servir todo por `:443` con un solo
    certificado (recomendado): `tuedad.me` → front `:3000`, `api.tuedad.me` → back `:8000`.
-4. **HTTPS gratis** con Certbot:
-   ```bash
-   sudo certbot --nginx -d tuedad.me -d www.tuedad.me -d api.tuedad.me
-   ```
-5. Re-hornear el front con el dominio y actualizar CORS:
+   Ver [Nginx + HTTPS](#nginx--https-recomendado) abajo.
+4. Re-hornear el front con el dominio y actualizar CORS (al final, ya con HTTPS):
    ```bash
    # web/.env.local
    NEXT_PUBLIC_API_URL=https://api.tuedad.me
@@ -142,6 +139,33 @@ Con un dominio evitas el problema de la IP y puedes poner HTTPS. Pasos:
 > ⚠️ **No mezclar HTTP y HTTPS.** Si el front se sirve por `https://` y el backend
 > por `http://`, el navegador bloquea las llamadas (*mixed content*). O ambos HTTPS
 > (con dominio + Certbot) o ambos HTTP.
+
+### Nginx + HTTPS (recomendado)
+Con Nginx delante, la app se sirve en `https://tuedad.me` y `https://api.tuedad.me`
+(sin puertos en la URL, con candado). El archivo listo está en
+[`deploy/nginx/tuedad.me.conf`](../deploy/nginx/tuedad.me.conf).
+
+**Requisitos previos:** DNS apuntando a la Elastic IP (ya hecho), Security Group con
+**80 y 443 abiertos** (los puertos 3000/8000 pueden quedar **cerrados** al exterior —
+Nginx los alcanza por `localhost`), y el front+back corriendo en `localhost:3000` y
+`localhost:8000`.
+
+```bash
+# 1. Instalar Nginx y copiar la config
+sudo apt update && sudo apt install -y nginx
+sudo cp deploy/nginx/tuedad.me.conf /etc/nginx/sites-available/tuedad.me
+sudo ln -s /etc/nginx/sites-available/tuedad.me /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+# A esta altura http://tuedad.me y http://api.tuedad.me ya funcionan (sin :puerto)
+
+# 2. HTTPS gratis con Certbot (añade los bloques :443 y el redirect 80->443 solo)
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d tuedad.me -d www.tuedad.me -d api.tuedad.me
+# Certbot renueva solo (timer systemd). Probar la renovación: sudo certbot renew --dry-run
+
+# 3. Re-hornear el front a HTTPS y ajustar CORS (paso 4 de arriba), y reiniciar back+front
+```
 
 ## Verificación
 ```bash
