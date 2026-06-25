@@ -22,6 +22,14 @@ uvicorn api.main:app --reload
 # docs interactivas: http://localhost:8000/docs
 ```
 
+> **En un servidor (EC2/producción)** hay que escuchar en todas las interfaces y
+> permitir el origen público del frontend, o las llamadas se cuelgan / las bloquea CORS:
+> ```bash
+> export CORS_ORIGINS="http://<IP_o_dominio_del_front>"
+> uvicorn api.main:app --host 0.0.0.0 --port 8000
+> ```
+> Detalles (Security Group, Elastic IP, dominio, HTTPS) en [docs/despliegue.md](../docs/despliegue.md).
+
 ## 3. Docker
 ```bash
 docker build -f api/Dockerfile -t ev3-api .
