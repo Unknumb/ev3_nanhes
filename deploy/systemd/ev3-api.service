@@ -1,0 +1,42 @@
+# Backend FastAPI (uvicorn) como servicio systemd.
+#
+# Instalación:
+#   # 1. Crear el archivo de secretos (NO va al repo):
+#   sudo mkdir -p /etc/ev3
+#   sudo tee /etc/ev3/api.env > /dev/null <<'EOF'
+#   DATABASE_URL=postgresql://...supabase.../postgres?sslmode=require
+#   CORS_ORIGINS=https://tuedad.me,https://www.tuedad.me
+#   SECRET_KEY=...
+#   SMTP_HOST=smtp.resend.com
+#   SMTP_PORT=587
+#   SMTP_USER=resend
+#   SMTP_PASSWORD=...
+#   SMTP_FROM=NHANES Longevity <noreply@tuedad.me>
+#   EOF
+#   sudo chmod 600 /etc/ev3/api.env
+#
+#   # 2. Instalar y arrancar:
+#   sudo cp deploy/systemd/ev3-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ev3-api
+#   sudo systemctl status ev3-api
+#   journalctl -u ev3-api -f          # ver logs
+#
+# Ajusta WorkingDirectory / ExecStart si el repo o el venv están en otra ruta
+# (`which uvicorn` para localizar el binario).
+
+[Unit]
+Description=EV3 NHANES Longevity API (uvicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ev3_nanhes
+EnvironmentFile=/etc/ev3/api.env
+ExecStart=/home/ubuntu/ev3_nanhes/.venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
