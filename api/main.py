@@ -65,27 +65,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# En produccion DEBE setearse CORS_ORIGINS con el origen publico del frontend
-# (p.ej. "http://<IP_o_dominio>" o "https://tuedad.me"); el default solo sirve
-# para desarrollo local y el navegador bloqueara las llamadas del front desplegado.
-_raw_origins = os.getenv(
-    "CORS_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000",
-)
-_PROD_ORIGINS = [
-    "https://tuedad.me",
-    "https://www.tuedad.me",
-    "http://tuedad.me",
-    "http://www.tuedad.me",
-]
-ALLOWED_ORIGINS = list(
-    {o.strip().rstrip("/") for o in _raw_origins.split(",") if o.strip()}
-    | {o.rstrip("/") for o in _PROD_ORIGINS}
-)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
