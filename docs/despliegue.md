@@ -167,6 +167,33 @@ sudo certbot --nginx -d tuedad.me -d www.tuedad.me -d api.tuedad.me
 # 3. Re-hornear el front a HTTPS y ajustar CORS (paso 4 de arriba), y reiniciar back+front
 ```
 
+> **Si `nginx -t` falla con `sites-enabled/tuedad.me ... No such file or directory`:**
+> el symlink quedó colgando porque el `cp` no copió el archivo (el repo del servidor
+> no tenía `deploy/nginx/tuedad.me.conf`). Recrea el archivo en
+> `/etc/nginx/sites-available/tuedad.me`, rehaz el symlink (`sudo rm -f` + `ln -s`) y
+> vuelve a `nginx -t`.
+
+### Servicios systemd (arranque automático)
+Para que back y front sobrevivan a reinicios y cierres de terminal, en vez de
+correr `uvicorn`/`npm` a mano usa los units de [`deploy/systemd/`](../deploy/systemd/):
+
+```bash
+# Secretos del backend fuera del repo:
+sudo mkdir -p /etc/ev3
+sudo nano /etc/ev3/api.env        # DATABASE_URL, CORS_ORIGINS, SECRET_KEY, SMTP_*
+sudo chmod 600 /etc/ev3/api.env
+
+# Instalar ambos servicios:
+sudo cp deploy/systemd/ev3-api.service deploy/systemd/ev3-web.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now ev3-api ev3-web
+sudo systemctl status ev3-api ev3-web
+journalctl -u ev3-api -f          # logs en vivo
+```
+Ajusta en los `.service` las rutas (`WorkingDirectory`, ruta de `uvicorn`/`npm`) si
+el repo o el venv no están en `/home/ubuntu/ev3_nanhes`. El front debe estar
+**construido** (`npm run build`) antes de arrancar `ev3-web`.
+
 ## Verificación
 ```bash
 curl http://localhost:8000/health

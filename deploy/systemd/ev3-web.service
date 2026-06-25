@@ -1,0 +1,33 @@
+# Frontend Next.js como servicio systemd.
+#
+# Requisito: el front debe estar YA construido con la URL del backend horneada:
+#   cd /home/ubuntu/ev3_nanhes/web
+#   echo 'NEXT_PUBLIC_API_URL=https://api.tuedad.me' > .env.local
+#   npm ci && npm run build
+# (NEXT_PUBLIC_* se fija en el BUILD; cambiar la URL exige rebuild.)
+#
+# Instalación:
+#   sudo cp deploy/systemd/ev3-web.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ev3-web
+#   sudo systemctl status ev3-web
+#   journalctl -u ev3-web -f
+#
+# Ajusta la ruta de npm si hace falta (`which npm`).
+
+[Unit]
+Description=EV3 NHANES Longevity Web (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ev3_nanhes/web
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/npm run start
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
