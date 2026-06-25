@@ -72,7 +72,15 @@ _raw_origins = os.getenv(
     "CORS_ORIGINS",
     "http://localhost:3000,http://127.0.0.1:3000",
 )
-ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+_PROD_ORIGINS = [
+    "https://tuedad.me",
+    "https://www.tuedad.me",
+    "http://tuedad.me",
+    "http://www.tuedad.me",
+]
+ALLOWED_ORIGINS = list(
+    {o.strip() for o in _raw_origins.split(",") if o.strip()} | set(_PROD_ORIGINS)
+)
 
 app.add_middleware(
     CORSMiddleware,
