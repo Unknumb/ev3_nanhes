@@ -79,7 +79,8 @@ _PROD_ORIGINS = [
     "http://www.tuedad.me",
 ]
 ALLOWED_ORIGINS = list(
-    {o.strip() for o in _raw_origins.split(",") if o.strip()} | set(_PROD_ORIGINS)
+    {o.strip().rstrip("/") for o in _raw_origins.split(",") if o.strip()}
+    | {o.rstrip("/") for o in _PROD_ORIGINS}
 )
 
 app.add_middleware(
