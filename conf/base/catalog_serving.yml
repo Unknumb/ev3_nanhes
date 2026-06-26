@@ -14,3 +14,7 @@ modelo_serving_regresion:
 serving_metadata:
   type: json.JSONDataset
   filepath: data/09_serving/metadata.json
+
+modelo_serving_mortalidad:
+  type: pickle.PickleDataset
+  filepath: data/09_serving/model_mortalidad_10y.pkl

@@ -20,7 +20,8 @@ from typing import Any
 def bendecir_modelos_serving(
     modelo_clasificacion: Any,
     modelo_regresion: Any,
-) -> tuple[Any, Any, dict]:
+    modelo_mortalidad: Any,
+) -> tuple[Any, Any, Any, dict]:
     """Persiste los modelos combinados a la ruta de serving y su metadata.
 
     Args:
@@ -28,7 +29,7 @@ def bendecir_modelos_serving(
         modelo_regresion: Pipeline sklearn (prep + XGBRegressor) entrenado.
 
     Returns:
-        (clasificador, regresor, metadata) — el catálogo los escribe en
+        (clasificador, regresor, mortalidad, metadata) — el catálogo los escribe en
         data/09_serving/. Los modelos se devuelven sin modificar.
     """
     # feature_names_in_ lo fija el ColumnTransformer al ajustarse con un DataFrame:
@@ -50,4 +51,4 @@ def bendecir_modelos_serving(
         f"Modelos COMBINADOS bendecidos para serving "
         f"({metadata['n_features']} features): {feature_cols}"
     )
-    return modelo_clasificacion, modelo_regresion, metadata
+    return modelo_clasificacion, modelo_regresion, modelo_mortalidad, metadata

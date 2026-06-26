@@ -19,10 +19,12 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs=[
                     "modelo_clasificacion_nhanes_combined",
                     "modelo_regresion_nhanes_combined",
+                    "modelo_mortalidad_10y",
                 ],
                 outputs=[
                     "modelo_serving_clasificacion",
                     "modelo_serving_regresion",
+                    "modelo_serving_mortalidad",
                     "serving_metadata",
                 ],
                 name="bendecir_modelos_serving",
