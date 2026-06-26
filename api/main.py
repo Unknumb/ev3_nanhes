@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="NHANES Longevity API",
-    version="0.1.0",
+    version="0.1.1",
     description="Predice longevidad (IS_LONGEVO) y edad biologica desde biomarcadores NHANES.",
     lifespan=lifespan,
 )
