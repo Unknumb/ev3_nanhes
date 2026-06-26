@@ -1,5 +1,3 @@
-import { GlobalImportanceChart } from "@/components/GlobalImportanceChart";
-import { ModelStats } from "@/components/ModelStats";
 import { SchemaForm } from "@/components/SchemaForm";
 import { SocialProof } from "@/components/SocialProof";
 
@@ -53,21 +51,6 @@ export default function Home() {
               </li>
             ))}
           </ul>
-        </section>
-
-        {/* Gráficos introductorios del modelo */}
-        <section className="grid gap-6">
-          <div>
-            <h2 className="text-2xl font-semibold text-slate-950">
-              Qué tan bien funcionan los modelos
-            </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Tres modelos (edad biológica, longevidad y mortalidad a 10 años), medidos
-              sobre datos que nunca vieron durante el entrenamiento.
-            </p>
-          </div>
-          <ModelStats />
-          <GlobalImportanceChart />
         </section>
 
         {/* Formulario */}
