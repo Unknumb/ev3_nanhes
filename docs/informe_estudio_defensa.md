@@ -14,8 +14,8 @@
 > *"Construimos una solución **end-to-end** que estima la **longevidad** y la **edad
 > biológica** de una persona a partir de sus biomarcadores de salud. Partimos de datos
 > públicos de salud de EE. UU. (NHANES, del CDC), los procesamos con un pipeline ETL
-> automatizado en **Kedro**, entrenamos dos modelos **XGBoost** —uno de clasificación y
-> uno de regresión—, y los exponemos a través de una **API REST (FastAPI)** que alimenta
+> automatizado en **Kedro**, entrenamos **tres modelos XGBoost** —clasificación de longevidad,
+> regresión de edad biológica y riesgo de mortalidad a 10 años—, y los exponemos a través de una **API REST (FastAPI)** que alimenta
 > un **dashboard diferenciado por audiencia** (ejecutiva, técnica y operativa). Todo está
 > versionado en Git, persistido en una base de datos **SQL** y empaquetado en **Docker**."*
 
@@ -249,7 +249,7 @@ ciclo vino cada fila (trazabilidad), y como cada ciclo se descarga una sola vez 
 La regla de oro: **el modelo nunca debe ver información del conjunto de test durante el
 entrenamiento.** Por eso:
 - El **`train_test_split` ocurre ANTES** de cualquier imputación/escalado.
-- Todo el preprocesamiento (`KNNImputer`, `StandardScaler`, `OneHotEncoder`) vive **dentro
+- Todo el preprocesamiento (`SimpleImputer` mediana, `StandardScaler`, `OneHotEncoder`) vive **dentro
   de un `Pipeline` de sklearn** (`ColumnTransformer`), que se **ajusta solo con el train de
   cada *fold*** de la validación cruzada.
 - Incluso `scale_pos_weight` se calcula **solo con el train**.
@@ -303,13 +303,15 @@ Decision Tree y Random Forest porque:
 **Hiperparámetros buscados:** `n_estimators` (nº de árboles), `max_depth` (profundidad),
 `learning_rate` (tasa de aprendizaje), `subsample`, `colsample_bytree`, `min_child_weight`.
 
-### 5.3 Resultados (conjunto de test)
+### 5.3 Resultados (conjunto de test — modelo combinado)
 | Modelo | Métrica | Valor | Lectura en una frase |
 |--------|---------|-------|----------------------|
-| Clasificación | **Accuracy** | **0.871** | Acierta si es longevo ~87% de las veces. |
-| Clasificación | **F1-score** | **0.870** | Equilibrio bueno entre precisión y recall (importante con clases desbalanceadas). |
-| Regresión | **MAE** | **7.26 años** | Se equivoca en promedio ±7 años al estimar la edad biológica. |
-| Regresión | **R²** | **0.747** | Explica ~75% de la variabilidad de la edad. |
+| Modelo 1 · Clasificación (longevidad) | **Accuracy** | **0.907** | Acierta si es longevo en 9 de cada 10 casos. |
+| Modelo 1 · Clasificación (longevidad) | **F1-score** | **0.922** | Equilibrio alto entre precisión y recall. |
+| Modelo 2 · Regresión (edad biológica) | **MAE** | **6.79 años** | Se equivoca en promedio ±6.8 años al estimar la edad biológica. |
+| Modelo 2 · Regresión (edad biológica) | **R²** | **0.804** | Explica el 80% de la variabilidad de la edad. |
+| Modelo 3 · Mortalidad 10 años | **AUC-ROC** | **0.900** | Excelente capacidad de discriminar quién fallecerá en 10 años. |
+| Modelo 3 · Mortalidad 10 años | **F1-score** | **0.663** | Precision 0.739 / Recall 0.601 — clase positiva es solo el 22.7% del test. |
 
 Mejores hiperparámetros encontrados:
 - **Clasificación:** `n_estimators=200, max_depth=3, learning_rate=0.2, subsample=1.0,
@@ -429,7 +431,7 @@ Usarla sería fuga de datos: el modelo "haría trampa". Solo ve biomarcadores.
 se ajusta solo con el train de cada fold; `scale_pos_weight` calculado solo con el train.
 
 **"Su accuracy es 87%, ¿no está inflado por el desbalance?"**
-Por eso reportamos **F1 (0.870)**, no solo accuracy, y usamos `scale_pos_weight` +
+Por eso reportamos **F1 (0.922)**, no solo accuracy, y usamos `scale_pos_weight` +
 estratificación + data augmentation. El F1 alto muestra que detectamos bien la clase
 minoritaria, no solo la mayoritaria.
 
