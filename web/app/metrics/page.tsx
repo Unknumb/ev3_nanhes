@@ -107,8 +107,8 @@ function friendlyReport(reportName: string): { titulo: string; subtitulo: string
   const lower = reportName.toLowerCase();
   if (lower.includes("clasific")) {
     return {
-      titulo: "Modelo 1 · ¿Llegará a ser longevo/a?",
-      subtitulo: "Responde sí o no (vivir hasta los 70+). Tipo: clasificación."
+      titulo: "Modelo 1 · ¿Qué tan parecido eres a un perfil 70+?",
+      subtitulo: "Mide qué tanto se parece tu perfil de salud al de una persona longeva (≥70 años). Tipo: clasificación."
     };
   }
   if (lower.includes("regres")) {
@@ -250,8 +250,8 @@ export default function MetricsPage() {
           <p className="mt-1">
             Entrenamos <strong>tres modelos</strong> de inteligencia artificial con
             datos reales de <strong>~42.000 adultos</strong> de la encuesta NHANES
-            (EE. UU., 7 ciclos): tu <strong>edad biológica</strong>, tu{" "}
-            <strong>parecido con un perfil 70+</strong> y tu{" "}
+            (EE. UU., 7 ciclos): tu <strong>parecido con un perfil 70+</strong>, tu{" "}
+            <strong>edad biológica</strong> y tu{" "}
             <strong>riesgo de mortalidad a 10 años</strong>. Cada modelo usa la porción
             de esos datos que le corresponde. Aquí te mostramos qué tan bien funcionan,
             sin tecnicismos.

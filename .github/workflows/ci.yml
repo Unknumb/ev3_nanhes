@@ -31,3 +31,21 @@ jobs:
 
       - name: Run pytest
         run: uv run pytest
+
+  deploy:
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/ev3_nanhes
+            git pull origin main
+            docker compose up --build -d
+            docker compose ps
