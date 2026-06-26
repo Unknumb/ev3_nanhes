@@ -20,10 +20,12 @@ La solución integra tres fuentes **de distinta naturaleza** (requisito del enca
 ```mermaid
 flowchart TD
     CDC[("FUENTE 1<br/>Archivos NHANES .xpt — CDC")]
+    MORT_CDC[("FUENTE 1b<br/>Ficheros mortalidad CDC<br/>(seguimiento post-encuesta)")]
 
     subgraph ETL["ETL · Kedro"]
         TRAIN["nhanes_combined: descarga todos los ciclos →<br/>limpieza SAS → preprocesa → entrena XGBoost (clf + reg)"]
-        SERV["serving: bendice el modelo combinado"]
+        MORTALITY["nhanes_mortality: descarga ficheros mortalidad →<br/>cruza con biomarcadores → entrena XGBoost (clf mortalidad 10y)"]
+        SERV["serving: bendice los modelos combinado + mortalidad"]
         LOADDB["load_db: dataset procesado → SQL"]
     end
 
@@ -39,7 +41,9 @@ flowchart TD
         EXEC["Ejecutiva: KPIs de negocio"]
     end
 
-    CDC --> TRAIN --> MODELS --> SERV --> API
+    CDC --> TRAIN --> MODELS
+    MORT_CDC --> MORTALITY --> MODELS
+    MODELS --> SERV --> API
     TRAIN --> LOADDB --> SQL
     API <-->|"historial · agregados"| SQL
     OPER -->|"POST /predict, /explain"| API
@@ -47,7 +51,7 @@ flowchart TD
     EXEC -->|"GET /aggregates"| API
 ```
 
-## Diagrama 2 — Flujo del ETL y entrenamiento
+## Diagrama 2 — Flujo del ETL y entrenamiento (Modelos 1 y 2)
 Clave: el `train_test_split` ocurre **antes** de cualquier transformación, y el
 preprocesamiento vive dentro del `Pipeline` (se ajusta solo con train en cada
 fold) → **sin fuga de datos**. El `best_estimator_` resultante es autocontenido.
@@ -56,11 +60,26 @@ flowchart LR
     A["Descarga .xpt<br/>wwwn.cdc.gov"] --> B["Limpieza centinela SAS<br/>(5.4e-79 → NaN)"]
     B --> C["Unión de ciclos<br/>2017-2018 base + históricos ≥70 (2015..2005)"]
     C --> D["train_test_split<br/>(antes de transformar)"]
-    D --> E["ColumnTransformer<br/>num: KNNImputer+Scaler · cat: Imputer+OneHot"]
-    E --> F["RandomizedSearchCV<br/>XGBClassifier + XGBRegressor"]
+    D --> E["ColumnTransformer<br/>num: Mediana+StandardScaler · cat: Moda+OneHot"]
+    E --> F["RandomizedSearchCV (30 iter, 5-fold)<br/>XGBClassifier + XGBRegressor"]
     F --> G["best_estimator_<br/>Pipeline autocontenido"]
     G --> H[("Pickle bendecido<br/>data/09_serving")]
     C --> I[("Dataset procesado<br/>→ SQL (load_db)")]
+```
+
+## Diagrama 2b — Flujo del pipeline de mortalidad (Modelo 3)
+Fuente de datos distinta: ficheros de seguimiento post-encuesta del CDC que
+registran si el participante falleció y cuándo. Se cruzan con los biomarcadores
+de los 7 ciclos para construir el target `murio_10y`.
+```mermaid
+flowchart LR
+    A["Descarga features .xpt<br/>wwwn.cdc.gov"] --> C["Cruce con ficheros<br/>de mortalidad CDC<br/>(7 ciclos 2005-2018)"]
+    B["Descarga ficheros<br/>mortalidad CDC<br/>(MORT_*.xpt)"] --> C
+    C --> D["Filtra censored<br/>→ target murio_10y"]
+    D --> E["train_test_split"]
+    E --> F["ColumnTransformer<br/>11 features esenciales<br/>Mediana+Scaler · Moda+OHE"]
+    F --> G["RandomizedSearchCV<br/>XGBClassifier"]
+    G --> H[("modelo_mortalidad_10y.pkl<br/>data/09_serving")]
 ```
 
 ## Diagrama 3 — Secuencia de una predicción
@@ -104,9 +123,10 @@ erDiagram
 ## Componentes
 | Componente | Ubicación | Responsabilidad |
 |---|---|---|
-| Pipeline `nhanes_combined` | `src/ev3_nhanes/pipelines/nhanes_combined` | **Modelo de producción**: une todos los ciclos del equipo y entrena el par clf+reg |
+| Pipeline `nhanes_combined` | `src/ev3_nhanes/pipelines/nhanes_combined` | **Modelos 1 y 2**: une todos los ciclos y entrena el par XGBClassifier (longevidad) + XGBRegressor (edad biológica) |
+| Pipeline `nhanes_mortality` | `src/ev3_nhanes/pipelines/nhanes_mortality` | **Modelo 3**: descarga ficheros de mortalidad CDC, cruza con biomarcadores y entrena XGBClassifier (riesgo mortalidad 10 años) |
 | Pipelines de ciclo | `src/ev3_nhanes/pipelines/nhanes_{2013,2015,2017_2018}` | Baselines por ciclo (no servidos): descarga, preprocesa y entrena por cohorte |
-| Pipeline `serving` | `src/ev3_nhanes/pipelines/serving` | Copia el modelo combinado a una ruta estable + `metadata.json` |
+| Pipeline `serving` | `src/ev3_nhanes/pipelines/serving` | Copia los modelos combinado + mortalidad a una ruta estable + `metadata.json` |
 | Pipeline `load_db` | `src/ev3_nhanes/pipelines/load_db` | Carga el dataset procesado a la base SQL |
 | Contrato | `feature_schema.json` | Fuente única de verdad de las 36 features (tipos, rangos, opciones) |
 | `model_registry.py` | `api/` | Carga modelos, `predict`, `explain` (SHAP) |

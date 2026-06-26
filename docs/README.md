@@ -12,7 +12,7 @@ despliegue en Docker.
 | [API REST](api.md) | Referencia de endpoints, esquemas de request/response, ejemplos `curl` |
 | [Manual de usuario](manual_usuario.md) | Cómo usar el dashboard (3 audiencias) e interpretar los resultados |
 | [Guía de despliegue](despliegue.md) | Local, Docker, `docker-compose`, `make train`, entrenamiento de modelos |
-| [Predicción de mortalidad](prediccion_mortalidad.md) | Diseño (no implementado) para predecir supervivencia / "vivir más de 70 años" |
+| [Predicción de mortalidad](prediccion_mortalidad.md) | Modelo 3 (implementado): riesgo de mortalidad a 10 años, pipeline `nhanes_mortality` |
 
 ## Mapa del repositorio
 ```
@@ -36,9 +36,7 @@ ev3_nanhes/
 > real + infra + docs + frontend). Avance fino por componente en [`PLAN.md`](../PLAN.md).
 
 ## Resumen técnico
-- **Modelos:** `XGBClassifier` (`IS_LONGEVO`, edad ≥ 70, **accuracy 0.87**) +
-  `XGBRegressor` (`RIDAGEYR` como edad biológica, **MAE 7.26 años**). Ambos son
-  `Pipeline` sklearn **autocontenidos** → la API pasa el dict crudo. Ver [modelo.md](modelo.md).
+- **Modelos:** `XGBClassifier` longevidad (**F1 0.922**) + `XGBRegressor` edad biológica (**MAE 6.79 años, R² 0.804**) + `XGBClassifier` mortalidad 10 años (**AUC 0.900, F1 0.663**). Los tres son `Pipeline` sklearn **autocontenidos** → la API pasa el dict crudo. Ver [modelo.md](modelo.md).
 - **3 fuentes de datos:** archivos NHANES (CDC) · API REST (FastAPI) · base SQL
   (Postgres local / Supabase). Ver [Arquitectura](arquitectura.md#las-3-fuentes-de-datos).
 - **Reproducibilidad:** `random_state=42`, gestión con `uv`, pipelines Kedro versionados.
