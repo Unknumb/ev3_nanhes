@@ -98,27 +98,70 @@ def _tabla_datos(features: dict[str, Any], schema: dict) -> str:
 
 
 def _tabla_factores(explain: dict | None, schema: dict) -> str:
-    if not explain or not explain.get("contribuciones"):
+    if not explain:
         return ""
     labels = {f["code"]: f["label"] for f in schema["features"]}
-    filas = []
-    for c in explain["contribuciones"][:6]:
-        nombre = labels.get(c["feature"], c["feature"])
-        if c["empuja"] == "longevo":
-            sentido, color = "Perfil de mayor edad", "#b45309"
-        else:
-            sentido, color = "Perfil más joven", "#047857"
-        filas.append(
-            f"<tr><td style='padding:6px 10px;border-bottom:1px solid #e2e8f0'>{html.escape(str(nombre))}</td>"
-            f"<td style='padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;color:{color}'>"
-            f"{html.escape(sentido)}</td></tr>"
-        )
-    cuerpo = "".join(filas)
-    return f"""
-    <h2 style="font-size:16px;color:#0f172a;margin:22px 0 4px">Qué más influyó en tu resultado</h2>
-    <p style="margin:0 0 8px;color:#64748b;font-size:13px">Los factores que más pesaron al estimar tu edad biológica.</p>
-    <table style="width:100%;border-collapse:collapse;font-size:14px">{cuerpo}</table>
-    """
+    labels.setdefault("RIDAGEYR", "Edad cronológica")
+
+    _TD = "padding:6px 10px;border-bottom:1px solid #e2e8f0"
+
+    def _filas(contribs: list, invert: bool) -> str:
+        shown = [c for c in contribs if c.get("user_provided", True)][:6]
+        rows = []
+        for c in shown:
+            nombre = labels.get(c["feature"], c["feature"])
+            val = c["shap"]
+            if invert:
+                sentido, color = ("↑ Sube", "#be123c") if val > 0 else ("↓ Baja", "#047857")
+            else:
+                sentido, color = ("↑ Sube similitud 70+", "#0369a1") if val > 0 else ("↓ Baja similitud 70+", "#64748b")
+            rows.append(
+                f"<tr>"
+                f"<td style='{_TD}'>{html.escape(str(nombre))}</td>"
+                f"<td style='{_TD};text-align:right;color:{color}'>{html.escape(sentido)}</td>"
+                f"</tr>"
+            )
+        return "".join(rows)
+
+    _TABLE = "width:100%;border-collapse:collapse;font-size:13px"
+    _H3 = "font-size:14px;color:#0f172a;margin:14px 0 4px"
+    _P = "margin:0 0 6px;color:#64748b;font-size:12px"
+
+    sections = []
+
+    if "clasificacion" in explain:
+        filas = _filas(explain["clasificacion"].get("contribuciones", []), invert=False)
+        if filas:
+            sections.append(
+                f"<h3 style='{_H3}'>Modelo 1 · Parecido con perfil de 70+</h3>"
+                f"<p style='{_P}'>Qué factores suben o bajan tu similitud con el perfil de personas mayores de 70.</p>"
+                f"<table style='{_TABLE}'>{filas}</table>"
+            )
+    if "regresion" in explain:
+        filas = _filas(explain["regresion"].get("contribuciones", []), invert=True)
+        if filas:
+            sections.append(
+                f"<h3 style='{_H3}'>Modelo 2 · Edad biológica</h3>"
+                f"<p style='{_P}'>Qué factores suben o bajan tu edad biológica estimada.</p>"
+                f"<table style='{_TABLE}'>{filas}</table>"
+            )
+    if "mortalidad" in explain:
+        filas = _filas(explain["mortalidad"].get("contribuciones", []), invert=True)
+        if filas:
+            sections.append(
+                f"<h3 style='{_H3}'>Modelo 3 · Riesgo de mortalidad a 10 años</h3>"
+                f"<p style='{_P}'>Qué factores aumentan o reducen tu riesgo estimado.</p>"
+                f"<table style='{_TABLE}'>{filas}</table>"
+            )
+
+    if not sections:
+        return ""
+
+    return (
+        "<h2 style='font-size:16px;color:#0f172a;margin:22px 0 4px'>Qué influyó en tu resultado</h2>"
+        "<p style='margin:0 0 10px;color:#64748b;font-size:12px'>Calculado solo con los datos que ingresaste.</p>"
+        + "".join(sections)
+    )
 
 
 def _mortalidad_html(mortalidad: dict | None) -> str:

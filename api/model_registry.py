@@ -130,49 +130,83 @@ def predict(features: dict[str, Any], edad_cronologica: float | None = None) -> 
     }
 
 
-def explain(features: dict[str, Any], top_n: int = 8) -> dict:
-    """SHAP sobre el clasificador: contribucion por feature NHANES original.
-
-    SHAP corre sobre el paso XGBoost (espacio transformado); luego se reagrupan
-    las columnas one-hot de cada categorica a su feature de origen para devolver
-    nombres limpios (RIAGENDR en vez de cat__RIAGENDR_2.0).
-    """
-    clf = get_classifier()
-    prep = clf.named_steps["prep"]
-    model = clf.named_steps["model"]
-
-    X = _to_frame(features)
+def _shap_contributions(
+    pipeline: Any,
+    X: pd.DataFrame,
+    valid_codes: set[str],
+    top_n: int,
+) -> dict:
+    """Corre SHAP sobre un Pipeline sklearn y agrega contribuciones al codigo NHANES."""
+    prep = pipeline.named_steps["prep"]
+    model = pipeline.named_steps["model"]
     X_trans = prep.transform(X)
     trans_names = list(prep.get_feature_names_out())
-
-    try:
-        explainer = shap.TreeExplainer(model)
-        shap_vals = explainer.shap_values(X_trans)
-    except ImportError as exc:  # pragma: no cover
-        raise RuntimeError("shap no esta instalado: pip install shap") from exc
-
+    explainer = shap.TreeExplainer(model)
+    shap_vals = explainer.shap_values(X_trans)
     shap_row = np.asarray(shap_vals)[0]
-
     agg: dict[str, float] = {}
     for name, val in zip(trans_names, shap_row):
         base = name.split("__", 1)[-1]
-        if base not in feature_codes():
+        if base not in valid_codes:
             base = base.rsplit("_", 1)[0]
         agg[base] = agg.get(base, 0.0) + float(val)
-
     ranked = sorted(agg.items(), key=lambda kv: abs(kv[1]), reverse=True)[:top_n]
-    contribs = [
-        {
-            "feature": code,
-            "shap": round(val, 4),
-            "empuja": "longevo" if val > 0 else "no_longevo",
-        }
-        for code, val in ranked
-    ]
     return {
         "base_value": round(float(explainer.expected_value), 4),
-        "contribuciones": contribs,
+        "contribuciones": [
+            {"feature": code, "shap": round(val, 4)}
+            for code, val in ranked
+        ],
     }
+
+
+def explain(
+    features: dict[str, Any],
+    provided_codes: set[str] | None = None,
+    edad_cronologica: float | None = None,
+    top_n: int = 8,
+) -> dict:
+    """SHAP para los 3 modelos (clasificacion, regresion, mortalidad).
+
+    provided_codes: set de features que el usuario realmente ingreso (no imputadas).
+    Cada contribucion lleva user_provided=True/False para que el front filtre.
+    """
+    if provided_codes is None:
+        provided_codes = {k for k, v in features.items() if v is not None}
+
+    _codes = set(feature_codes())
+    X = _to_frame(features)
+
+    try:
+        clf_result = _shap_contributions(get_classifier(), X, _codes, top_n)
+        reg_result = _shap_contributions(get_regressor(), X, _codes, top_n)
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("shap no esta instalado: pip install shap") from exc
+
+    for result in (clf_result, reg_result):
+        for c in result["contribuciones"]:
+            c["user_provided"] = c["feature"] in provided_codes
+
+    out: dict[str, Any] = {"clasificacion": clf_result, "regresion": reg_result}
+
+    if mortality_ready() and edad_cronologica is not None:
+        try:
+            mort_model = get_mortality_model()
+            mort_cols = list(mort_model.named_steps["prep"].feature_names_in_)
+            mort_features = {**features, "RIDAGEYR": edad_cronologica}
+            X_mort = pd.DataFrame(
+                [{c: mort_features.get(c) for c in mort_cols}], columns=mort_cols
+            )
+            mort_valid = _codes | {"RIDAGEYR"}
+            mort_result = _shap_contributions(mort_model, X_mort, mort_valid, top_n)
+            mort_provided = provided_codes | {"RIDAGEYR"}
+            for c in mort_result["contribuciones"]:
+                c["user_provided"] = c["feature"] in mort_provided
+            out["mortalidad"] = mort_result
+        except Exception:  # pragma: no cover
+            pass  # mortalidad es best-effort
+
+    return out
 
 
 def _regroup_to_nhanes(trans_name: str) -> str:

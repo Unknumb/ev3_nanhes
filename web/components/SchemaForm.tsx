@@ -65,12 +65,18 @@ type SubmitState =
 type ExplainContribution = {
   feature: string;
   shap: number;
-  empuja: "longevo" | "no_longevo";
+  user_provided: boolean;
+};
+
+type ModelExplain = {
+  base_value?: number;
+  contribuciones: ExplainContribution[];
 };
 
 type ExplainResult = {
-  base_value?: number;
-  contribuciones: ExplainContribution[];
+  clasificacion: ModelExplain;
+  regresion: ModelExplain;
+  mortalidad?: ModelExplain;
 };
 
 type ExplainState =
@@ -397,64 +403,58 @@ function MortalityCard({ result }: { result: MortalityResult }) {
   );
 }
 
-function ShapBars({
-  explainResult,
-  labels
-}: {
-  explainResult: ExplainResult;
+type ShapSectionConfig = {
+  title: string;
+  subtitle: string;
+  model: ModelExplain;
   labels: Record<string, string>;
-}) {
-  const maxMagnitude = Math.max(
-    ...explainResult.contribuciones.map((contribution) =>
-      Math.abs(contribution.shap)
-    ),
-    0
-  );
+  /** Si true, shap positivo = sube valor (malo → rojo); negativo = baja (bueno → verde) */
+  invertColors: boolean;
+  labelPositivo: string;
+  labelNegativo: string;
+};
+
+function ShapSection({
+  title,
+  subtitle,
+  model,
+  labels,
+  invertColors,
+  labelPositivo,
+  labelNegativo
+}: ShapSectionConfig) {
+  const shown = model.contribuciones.filter((c) => c.user_provided);
+  if (shown.length === 0) return null;
+  const maxMag = Math.max(...shown.map((c) => Math.abs(c.shap)), 0);
 
   return (
-    <section className="grid gap-5 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="grid gap-3">
       <div>
-        <h2 className="text-2xl font-semibold text-slate-950">
-          ¿Qué influyó en tu resultado?
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Estos son los factores que más movieron <strong>tu</strong> predicción.
-          En <span className="font-semibold text-emerald-700">verde</span>, los que
-          te acercan a ser longevo/a; en{" "}
-          <span className="font-semibold text-rose-700">rojo</span>, los que te
-          alejan. Cuanto más larga la barra, más pesó ese factor.
-        </p>
+        <h3 className="text-base font-semibold text-slate-950">{title}</h3>
+        <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
       </div>
-
-      <div className="grid gap-4">
-        {explainResult.contribuciones.map((contribution) => {
-          const magnitude = Math.abs(contribution.shap);
-          const width =
-            maxMagnitude > 0 ? Math.max(6, (magnitude / maxMagnitude) * 100) : 0;
-          const isPositive = contribution.empuja === "longevo";
-          const nombre = labels[contribution.feature] ?? contribution.feature;
-
+      <div className="grid gap-3">
+        {shown.map((c) => {
+          const width = maxMag > 0 ? Math.max(6, (Math.abs(c.shap) / maxMag) * 100) : 0;
+          const isGreen = invertColors ? c.shap < 0 : c.shap > 0;
+          const nombre = labels[c.feature] ?? c.feature;
           return (
-            <div className="grid gap-2" key={`${contribution.feature}-${contribution.shap}`}>
+            <div className="grid gap-1" key={c.feature}>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-medium text-slate-950">{nombre}</span>
+                <span className="text-sm font-medium text-slate-950">{nombre}</span>
                 <span
                   className={
-                    isPositive
-                      ? "rounded-md bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800"
-                      : "rounded-md bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-800"
+                    isGreen
+                      ? "rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800"
+                      : "rounded-md bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800"
                   }
                 >
-                  {isPositive ? "↑ Te acerca a longevo" : "↓ Te aleja de longevo"}
+                  {c.shap > 0 ? labelPositivo : labelNegativo}
                 </span>
               </div>
-              <div className="h-3 overflow-hidden rounded-md bg-slate-100">
+              <div className="h-2 overflow-hidden rounded-md bg-slate-100">
                 <div
-                  className={
-                    isPositive
-                      ? "h-full rounded-md bg-emerald-500"
-                      : "h-full rounded-md bg-rose-500"
-                  }
+                  className={isGreen ? "h-full rounded-md bg-emerald-500" : "h-full rounded-md bg-rose-500"}
                   style={{ width: `${width}%` }}
                 />
               </div>
@@ -462,10 +462,76 @@ function ShapBars({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function ShapBars({
+  explainResult,
+  labels
+}: {
+  explainResult: ExplainResult;
+  labels: Record<string, string>;
+}) {
+  const anyShown =
+    explainResult.clasificacion.contribuciones.some((c) => c.user_provided) ||
+    explainResult.regresion.contribuciones.some((c) => c.user_provided) ||
+    (explainResult.mortalidad?.contribuciones ?? []).some((c) => c.user_provided);
+
+  if (!anyShown) return null;
+
+  return (
+    <section className="grid gap-6 rounded-md border border-slate-200 bg-white p-6 shadow-sm">
+      <div>
+        <h2 className="text-2xl font-semibold text-slate-950">
+          ¿Qué influyó en tu resultado?
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Por cada modelo, los factores que más movieron <strong>tu</strong> predicción,
+          calculados solo con los datos que ingresaste. Cuanto más larga la barra,
+          más pesó ese factor.
+        </p>
+      </div>
+
+      <div className="grid gap-6 divide-y divide-slate-100">
+        <ShapSection
+          title="Modelo 1 · Parecido con perfil de 70+"
+          subtitle="Qué factores hacen que tus datos se parezcan más o menos al perfil de una persona mayor de 70 años en los datos NHANES."
+          model={explainResult.clasificacion}
+          labels={labels}
+          invertColors={false}
+          labelPositivo="↑ Sube similitud con 70+"
+          labelNegativo="↓ Baja similitud con 70+"
+        />
+        <div className="pt-6">
+          <ShapSection
+            title="Modelo 2 · Edad biológica"
+            subtitle="Qué factores suben o bajan tu edad biológica estimada. Verde = te hace parecer más joven; rojo = más viejo."
+            model={explainResult.regresion}
+            labels={labels}
+            invertColors={true}
+            labelPositivo="↑ Sube tu edad biológica"
+            labelNegativo="↓ Baja tu edad biológica"
+          />
+        </div>
+        {explainResult.mortalidad && (
+          <div className="pt-6">
+            <ShapSection
+              title="Modelo 3 · Riesgo de mortalidad a 10 años"
+              subtitle="Qué factores aumentan o reducen tu riesgo estimado. Verde = reduce el riesgo; rojo = lo aumenta."
+              model={explainResult.mortalidad}
+              labels={labels}
+              invertColors={true}
+              labelPositivo="↑ Aumenta el riesgo"
+              labelNegativo="↓ Reduce el riesgo"
+            />
+          </div>
+        )}
+      </div>
 
       <p className="text-xs leading-5 text-slate-400">
-        Calculado con SHAP, una técnica que reparte el resultado entre los datos que
-        ingresaste para ver cuánto aportó cada uno. No es un diagnóstico médico.
+        Calculado con SHAP sobre los datos que ingresaste. Los campos no completados
+        no aparecen aquí. No es un diagnóstico médico.
       </p>
     </section>
   );

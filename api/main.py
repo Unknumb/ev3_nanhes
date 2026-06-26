@@ -128,8 +128,13 @@ def explain(req: PredictRequest) -> dict:
     errores = validate_features(req.features)
     if errores:
         raise HTTPException(status_code=422, detail=errores)
+    provided_codes = {k for k, v in req.features.items() if v is not None}
     try:
-        return registry.explain(req.features)
+        return registry.explain(
+            req.features,
+            provided_codes=provided_codes,
+            edad_cronologica=req.edad_cronologica,
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
 
