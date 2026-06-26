@@ -13,11 +13,12 @@ type MetricsState =
 
 // ── Presentacion amigable de cada metrica (lenguaje simple, sin jerga ML) ──
 type Render = "pct" | "score" | "years";
+type ModelType = "clasificacion" | "regresion" | "mortalidad" | "unknown";
 type MetricMeta = {
   titulo: string;
   emoji: string;
   render: Render;
-  explica: (v: number) => string;
+  explica: (v: number, modelType: ModelType) => string;
 };
 
 const METRIC_META: Record<string, MetricMeta> = {
@@ -25,42 +26,54 @@ const METRIC_META: Record<string, MetricMeta> = {
     titulo: "Tasa de acierto",
     emoji: "🎯",
     render: "pct",
-    explica: (v) =>
-      `De cada 100 personas, el modelo acierta en ~${Math.round(
-        v * 100
-      )} al decir si llegarán a ser longevas (≥70 años) o no.`
+    explica: (v, m) => {
+      const pct = Math.round(v * 100);
+      if (m === "mortalidad")
+        return `De cada 100 personas, el modelo acierta en ~${pct} al predecir si fallecerán en los próximos 10 años o no.`;
+      return `De cada 100 personas, el modelo acierta en ~${pct} al decir si su perfil se parece al de una persona de 70+ años o no.`;
+    }
   },
   f1: {
     titulo: "Equilibrio (F1)",
     emoji: "⚖️",
     render: "score",
-    explica: () =>
-      "Acierta de forma pareja en ambos grupos (longevos y no), sin sesgarse hacia el más común. Va de 0 a 1: cuanto más alto, mejor."
+    explica: (_v, m) => {
+      if (m === "mortalidad")
+        return "Acierta de forma pareja en ambos grupos (fallece / no fallece), sin sesgarse hacia el más común. Va de 0 a 1: cuanto más alto, mejor.";
+      return "Acierta de forma pareja en ambos grupos (perfil 70+ y no), sin sesgarse hacia el más común. Va de 0 a 1: cuanto más alto, mejor.";
+    }
   },
   precision: {
     titulo: "Precisión",
     emoji: "✅",
     render: "pct",
-    explica: (v) =>
-      `Cuando el modelo dice "longevo", acierta el ${Math.round(
-        v * 100
-      )}% de las veces.`
+    explica: (v, m) => {
+      const pct = Math.round(v * 100);
+      if (m === "mortalidad")
+        return `Cuando el modelo predice fallecimiento en 10 años, acierta el ${pct}% de las veces.`;
+      return `Cuando el modelo dice "perfil de 70+", acierta el ${pct}% de las veces.`;
+    }
   },
   recall: {
     titulo: "Cobertura",
     emoji: "🔍",
     render: "pct",
-    explica: (v) =>
-      `De todas las personas longevas reales, el modelo detecta el ${Math.round(
-        v * 100
-      )}%.`
+    explica: (v, m) => {
+      const pct = Math.round(v * 100);
+      if (m === "mortalidad")
+        return `De todas las personas que realmente fallecieron en 10 años, el modelo detecta el ${pct}%.`;
+      return `De todas las personas con perfil de 70+ real, el modelo detecta el ${pct}%.`;
+    }
   },
   roc_auc: {
     titulo: "Capacidad de distinguir",
     emoji: "📈",
     render: "score",
-    explica: () =>
-      "Qué tan bien separa a un longevo de un no-longevo tomados al azar. 0.5 sería pura suerte; 1 sería perfecto."
+    explica: (_v, m) => {
+      if (m === "mortalidad")
+        return "Qué tan bien separa a alguien que fallecerá en 10 años de alguien que no, tomados al azar. 0.5 sería pura suerte; 1 sería perfecto.";
+      return "Qué tan bien separa un perfil de 70+ de uno que no lo es, tomados al azar. 0.5 sería pura suerte; 1 sería perfecto.";
+    }
   },
   mae: {
     titulo: "Error típico de edad",
@@ -103,28 +116,36 @@ const ORDEN: string[] = [
   "r2"
 ];
 
-function friendlyReport(reportName: string): { titulo: string; subtitulo: string } {
+function friendlyReport(reportName: string): {
+  titulo: string;
+  subtitulo: string;
+  modelType: ModelType;
+} {
   const lower = reportName.toLowerCase();
   if (lower.includes("clasific")) {
     return {
       titulo: "Modelo 1 · ¿Qué tan parecido eres a un perfil 70+?",
-      subtitulo: "Mide qué tanto se parece tu perfil de salud al de una persona longeva (≥70 años). Tipo: clasificación."
+      subtitulo:
+        "Mide qué tanto se parece tu perfil de salud al de una persona longeva (≥70 años). Tipo: clasificación.",
+      modelType: "clasificacion"
     };
   }
   if (lower.includes("regres")) {
     return {
       titulo: "Modelo 2 · ¿Qué edad biológica aparenta?",
-      subtitulo: "Estima la edad del cuerpo en años. Tipo: regresión."
+      subtitulo: "Estima la edad del cuerpo en años. Tipo: regresión.",
+      modelType: "regresion"
     };
   }
   if (lower.includes("mortalidad")) {
     return {
       titulo: "Modelo 3 · ¿Riesgo de mortalidad a 10 años?",
       subtitulo:
-        "Probabilidad de fallecer en los próximos 10 años según el perfil. Tipo: clasificación."
+        "Probabilidad de fallecer en los próximos 10 años según el perfil. Tipo: clasificación.",
+      modelType: "mortalidad"
     };
   }
-  return { titulo: reportName, subtitulo: "" };
+  return { titulo: reportName, subtitulo: "", modelType: "unknown" };
 }
 
 function barColor(v: number): string {
@@ -139,7 +160,15 @@ function valueLabel(render: Render, v: number): string {
   return v.toFixed(2);
 }
 
-function MetricCard({ metricKey, value }: { metricKey: string; value: number }) {
+function MetricCard({
+  metricKey,
+  value,
+  modelType
+}: {
+  metricKey: string;
+  value: number;
+  modelType: ModelType;
+}) {
   const meta = METRIC_META[metricKey];
   if (!meta) return null;
   const showBar = meta.render !== "years";
@@ -168,7 +197,9 @@ function MetricCard({ metricKey, value }: { metricKey: string; value: number }) 
         </div>
       )}
 
-      <p className="mt-3 text-sm leading-6 text-slate-600">{meta.explica(value)}</p>
+      <p className="mt-3 text-sm leading-6 text-slate-600">
+        {meta.explica(value, modelType)}
+      </p>
     </div>
   );
 }
@@ -224,11 +255,12 @@ export default function MetricsPage() {
 
     return Object.entries(metricsState.data).map(([reportName, reportText]) => {
       const metrics = parseReportMetrics(reportText);
+      const { titulo, subtitulo, modelType } = friendlyReport(reportName);
       const ordered = ORDEN.filter((k) => k in metrics).map((k) => ({
         key: k,
         value: metrics[k]
       }));
-      return { ordered, reportName, reportText, ...friendlyReport(reportName) };
+      return { ordered, reportName, reportText, titulo, subtitulo, modelType };
     });
   }, [metricsState]);
 
@@ -279,7 +311,7 @@ export default function MetricsPage() {
 
         {metricsState.status === "success" &&
           parsedReports.map(
-            ({ ordered, reportName, reportText, titulo, subtitulo }) => (
+            ({ ordered, reportName, reportText, titulo, subtitulo, modelType }) => (
               <section
                 className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
                 key={reportName}
@@ -298,6 +330,7 @@ export default function MetricsPage() {
                         key={`${reportName}-${key}`}
                         metricKey={key}
                         value={value}
+                        modelType={modelType}
                       />
                     ))}
                   </div>
