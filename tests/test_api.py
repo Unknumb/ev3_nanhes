@@ -195,8 +195,10 @@ def test_explain_si_shap_disponible(client):
     r = client.post("/explain", json={"features": VALID_FEATURES})
     assert r.status_code == 200
     body = r.json()
-    assert "contribuciones" in body
-    assert len(body["contribuciones"]) > 0
+    assert "clasificacion" in body
+    assert "regresion" in body
+    assert "contribuciones" in body["clasificacion"]
+    assert len(body["clasificacion"]["contribuciones"]) > 0
 
 
 # --- Campos opcionales (reduccion de friccion del formulario) ----------------
